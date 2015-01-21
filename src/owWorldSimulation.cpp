@@ -172,10 +172,12 @@ void display(void)
 	//	//gluSphere(quadObj, diameter/2.0f * sc,8,8);
 	//	glPopMatrix();
 	//}
-	if(fluid_simulation->getIteration() == 1301){
+	if(fluid_simulation->getIteration() == 13001){
 		sPause = true;
 	}
 	float dc, rho;
+	//float * nm = fluid_simulation->neighbourMap_cpp;
+	//unsigned int * p_index_back = fluid_simulation->particleIndex_back_cpp;
 	//Display all particles
 	for(i = 0; i<loacalConfig->getParticleCount(); i++)
 	{
@@ -189,13 +191,26 @@ void display(void)
 			//  R   G   B
 			glColor4f(  0,  0,  1, 1.0f);//blue
 			if(!load_from_file){
-				if( (dc=100*(rho-rho0*1.00f)/rho0) >0 )	glColor4f(   0,  dc,   1,1.0f);//cyan
-				if( (dc=100*(rho-rho0*1.01f)/rho0) >0 )	glColor4f(   0,   1,1-dc,1.0f);//green
-				if( (dc=100*(rho-rho0*1.02f)/rho0) >0 )	glColor4f(  dc,   1,   0,1.0f);//yellow
-				if( (dc=100*(rho-rho0*1.03f)/rho0) >0 )	glColor4f(   1,1-dc,   0,1.0f);//red
-				if( (dc=100*(rho-rho0*1.04f)/rho0) >0 )	glColor4f(   1,   0,   0,1.0f);
-
-
+				if( (dc=100*(rho-rho0*1.00f)/rho0) >0 ){	
+					glColor4f(   0,  dc,   1,1.0f);//cyan 
+					show = true;
+				}
+				if( (dc=100*(rho-rho0*1.01f)/rho0) >0 ){
+					glColor4f(   0,   1,1-dc,1.0f);//green
+					show = true;
+				}
+				if( (dc=100*(rho-rho0*1.02f)/rho0) >0 ){
+					glColor4f(  dc,   1,   0,1.0f);//yellow
+					show = true;
+				}
+				if( (dc=100*(rho-rho0*1.03f)/rho0) >0 ){
+					glColor4f(   1,1-dc,   0,1.0f);//red
+					show = true;
+				}
+				if( (dc=100*(rho-rho0*1.04f)/rho0) >0 ){
+					glColor4f(   1,   0,   0,1.0f);
+					show = true;
+				}
 				if( (rho) < 600 ){	
 					glColor4f(   1,0,   0,1.0f);//red
 					show = true;
@@ -209,6 +224,14 @@ void display(void)
 					show = true;
 				}
 			}
+			//if(nearestParticle > -1)
+			//	for(int ii = p_index_back[nearestParticle] * 2 * MAX_NEIGHBOR_COUNT; ii < (p_index_back[nearestParticle] + 1) * 2 * MAX_NEIGHBOR_COUNT; ii+=2 ){
+			//		if( (int)nm[ii] == p_index_back[i]){
+			//			show=true;
+			//			glColor4f(   0, 1, 1, 1.0f);//red
+			//			break;
+			//		}
+			//	}
 		}
 		else
 			glColor4f(  0,  0,  1, 1.0f);//blue
@@ -221,6 +244,7 @@ void display(void)
 				glPointSize(6.f);
 			}
 			if(i == nearestParticle){
+				glColor4f(   0,   0,   0,  1.0f);// color of elastic particles
 				int cc = 0;
 				cc += 1;
 			}

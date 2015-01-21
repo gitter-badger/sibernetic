@@ -111,10 +111,16 @@ public:
 	 */
 
 	float * getNeghboursMap() const { ocl_solver->read_NeighbourMap_buffer(neighbourMap_cpp, config ); return neighbourMap_cpp; }
+
+	unsigned int * getParticleIndexBack_cpp() const { ocl_solver->read_ParticleIndexBack(particleIndex_back_cpp, config); return particleIndex_back_cpp; };
 	const int getIteration() const { return iterationCount; };
 	void reset();
 	void getDensityDistrib();
 	float centerMass[3];
+
+	unsigned int * particleIndex_back_cpp;
+	float * neighbourMap_cpp;
+	
 private:
 	owOpenCLSolver * ocl_solver;
 	float * position_cpp;				// everywhere in the code %variableName%_cpp means that we create 
@@ -122,8 +128,8 @@ private:
 	float * elasticConnectionsData_cpp; // copied later to OpenCL buffer %variableName% 
 	int	  * membraneData_cpp;
 	int   * particleMembranesList_cpp;
+	
 
-	float * neighbourMap_cpp;
 	//Helper arrays for displaying information about density changes
 	float * density_cpp;
 	unsigned int * particleIndex_cpp;

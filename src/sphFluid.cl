@@ -283,7 +283,7 @@ int getMaxIndex(
  *  It takes every particles from particular cell and check if it satisfy 
  *  a condition that distance between particles is <= closest_distance
  */
-int searchForNeighbors_b(
+/*int searchForNeighbors_b(
 						 int searchCell_,
 						 __global uint * gridCellIndex,
 						 float4 position_,
@@ -324,7 +324,7 @@ int searchForNeighbors_b(
 		i++;
 	}//while
 	return farthest_neighbor;
-}
+}*/
 /** Return value of cellId from gridCellIndexFixedUp
  *  for particular cell and offset (deltaX,Y,Z)
  */
@@ -352,7 +352,7 @@ int searchCell(
  *  sortedPosition and sortedVelocity, neighbor search starting.
  *  Kernel looking for a nearest particles for all particles.
  */
-__kernel void findNeighbors(
+/*__kernel void findNeighbors(
 							__global uint * gridCellIndexFixedUp,
 							__global float4 * sortedPosition,
 							int gridCellCount,
@@ -462,6 +462,203 @@ __kernel void findNeighbors(
 	}
 	
 	
+}*/
+
+
+#define FOUND_NO_NEIGHBOR 0
+#define FOUND_ONE_NEIGHBOR 1
+#define radius_segments 30
+
+int searchForNeighbors( 
+					   int searchCell_, 
+					   __global uint * gridCellIndex, 
+					   float4 position_, 
+					   int myParticleId, 
+					   __global float4 * sortedPosition,
+					   __global float2 * neighborMap,
+					   int spaceLeft,
+					   float h,
+					   float simulationScale,
+					   int mode,
+					   int * radius_distrib,
+					   float r_thr
+					   )
+{
+	int baseParticleId = gridCellIndex[ searchCell_ ];
+	int nextParticleId = gridCellIndex[ searchCell_ + 1 ];
+	int particleCountThisCell = nextParticleId - baseParticleId;
+	int potentialNeighbors = particleCountThisCell;
+	int foundCount = 0;
+	bool loop = true;
+	int i = 0,j;
+	float _distance,_distanceSquared;
+	float r_thr_Squared = r_thr*r_thr;
+	float2 neighbor_data;
+	int neighborParticleId;
+	int myOffset;
+	if(spaceLeft>0)
+		while( i < particleCountThisCell ){
+
+			neighborParticleId = baseParticleId + i;
+			
+			//if(myParticleId == neighborParticleId) continue;
+
+			if(myParticleId != neighborParticleId)
+			{
+				float4 d = position_ - sortedPosition[ neighborParticleId ];
+				d.w = 0.0f;
+				_distanceSquared = d.x*d.x + d.y*d.y + d.z*d.z; // inlined openCL dot(d,d)
+				if( _distanceSquared <= r_thr_Squared )
+				{
+					_distance = SQRT( _distanceSquared );
+					j = (int)(_distance*radius_segments/h);
+					if(j<radius_segments) radius_distrib[j]++; 
+
+					// searchForNeighbors runs twice
+					// first time with mode = 0, to build distribution
+					// and 2nd time with mode = 1, to select 32 nearest neighbors
+					if(mode)
+					{
+						myOffset = MAX_NEIGHBOR_COUNT - spaceLeft + foundCount;
+						if(myOffset>=MAX_NEIGHBOR_COUNT) break;// New line fixing the bug with indeterminism. A. Palyanov 22.02.2013
+						neighbor_data.x = neighborParticleId;
+						neighbor_data.y = _distance * simulationScale; // scaled, OK
+						neighborMap[ myParticleId*MAX_NEIGHBOR_COUNT + myOffset ] = neighbor_data;
+						foundCount++;
+					}
+				}
+			
+			}
+
+			i++;
+			
+		}//while
+
+	return foundCount;
+}
+
+__kernel void findNeighbors(
+							__global uint * gridCellIndexFixedUp,
+							__global float4 * sortedPosition,
+							int gridCellCount,
+							int gridCellsX,
+							int gridCellsY,
+							int gridCellsZ,
+							float h,
+							float hashGridCellSize,
+							float hashGridCellSizeInv,
+							float simulationScale,
+							float xmin,
+							float ymin,
+							float zmin,
+							__global float2 * neighborMap,
+							int	  PARTICLE_COUNT
+							)
+{
+	int id = get_global_id( 0 );
+	if( id >= PARTICLE_COUNT ) return;
+	__global uint * gridCellIndex = gridCellIndexFixedUp;
+	float4 position_ = sortedPosition[ id ];
+	int myCellId = (int)POSITION_CELL_ID( position_ ) & 0xffff;// truncate to low 16 bits
+	int searchCell_;
+	int foundCount = 0;
+	int mode = 0;
+	int distrib_sum = 0;
+	int radius_distrib[radius_segments];
+	int i=0,j;
+	float r_thr = h;
+	
+	while( i<radius_segments )
+	{
+		radius_distrib[i]=0;
+		i++;
+	}
+	
+	while( mode<2 )
+	{
+		// search surrounding cell 1
+
+		searchCell_ = myCellId;
+		foundCount += searchForNeighbors( searchCell_, gridCellIndex, position_, 
+			id, sortedPosition, neighborMap, MAX_NEIGHBOR_COUNT - foundCount, 
+			h, simulationScale, mode, radius_distrib, r_thr );
+
+		// p is the current particle position within the bounds of the hash grid
+		float4 p;
+		float4 p0 = (float4)( xmin, ymin, zmin, 0.0f );
+		p = position_ - p0;
+
+		// cf is the min,min,min corner of the current cell
+		int4 cellFactors_ = cellFactors( position_, xmin, ymin, zmin, hashGridCellSizeInv );
+		float4 cf;
+		cf.x = cellFactors_.x * hashGridCellSize;
+		cf.y = cellFactors_.y * hashGridCellSize;
+		cf.z = cellFactors_.z * hashGridCellSize;
+
+		// lo.A is true if the current position is in the low half of the cell for dimension A
+		int4 lo;
+		lo = (( p - cf ) < h );
+
+		int4 delta;
+		int4 one = (int4)( 1, 1, 1, 1 );
+		delta = one + 2 * lo;
+
+		// search surrounding cells 2..8
+
+		searchCell_ = searchCell( myCellId, delta.x, 0, 0, gridCellsX, gridCellsY, gridCellsZ, gridCellCount );
+		foundCount += searchForNeighbors( searchCell_, gridCellIndex, position_, 
+			id, sortedPosition, neighborMap, MAX_NEIGHBOR_COUNT - foundCount, 
+			h, simulationScale, mode, radius_distrib, r_thr  );
+
+		searchCell_ = searchCell( myCellId, 0, delta.y, 0, gridCellsX, gridCellsY, gridCellsZ, gridCellCount );
+		foundCount += searchForNeighbors( searchCell_, gridCellIndex, position_, 
+			id, sortedPosition, neighborMap, MAX_NEIGHBOR_COUNT - foundCount, 
+			h, simulationScale, mode, radius_distrib, r_thr  );
+
+		searchCell_ = searchCell( myCellId, 0, 0, delta.z, gridCellsX, gridCellsY, gridCellsZ, gridCellCount );
+		foundCount += searchForNeighbors( searchCell_, gridCellIndex, position_, 
+			id, sortedPosition, neighborMap, MAX_NEIGHBOR_COUNT - foundCount, 
+			h, simulationScale, mode, radius_distrib, r_thr  );
+
+		searchCell_ = searchCell( myCellId, delta.x, delta.y, 0, gridCellsX, gridCellsY, gridCellsZ, gridCellCount );
+		foundCount += searchForNeighbors( searchCell_, gridCellIndex, position_, 
+			id, sortedPosition, neighborMap, MAX_NEIGHBOR_COUNT - foundCount, 
+			h, simulationScale, mode, radius_distrib, r_thr  );
+
+		searchCell_ = searchCell( myCellId, delta.x, 0, delta.z, gridCellsX, gridCellsY, gridCellsZ, gridCellCount );
+		foundCount += searchForNeighbors( searchCell_, gridCellIndex, position_, 
+			id, sortedPosition, neighborMap, MAX_NEIGHBOR_COUNT - foundCount, 
+			h, simulationScale, mode, radius_distrib, r_thr  );
+
+		searchCell_ = searchCell( myCellId, 0, delta.y, delta.z, gridCellsX, gridCellsY, gridCellsZ, gridCellCount );
+		foundCount += searchForNeighbors( searchCell_, gridCellIndex, position_, 
+			id, sortedPosition, neighborMap, MAX_NEIGHBOR_COUNT - foundCount, 
+			h, simulationScale, mode, radius_distrib, r_thr  );
+
+		searchCell_ = searchCell( myCellId, delta.x, delta.y, delta.z, gridCellsX, gridCellsY, gridCellsZ, gridCellCount );
+		foundCount += searchForNeighbors( searchCell_, gridCellIndex, position_, 
+			id, sortedPosition, neighborMap, MAX_NEIGHBOR_COUNT - foundCount, 
+			h, simulationScale, mode, radius_distrib, r_thr );
+
+		if(mode==0)
+		{
+			j=0;
+			
+			while(j<radius_segments)
+			{
+				distrib_sum += radius_distrib[j];
+				if(distrib_sum==MAX_NEIGHBOR_COUNT) break;
+				if(distrib_sum> MAX_NEIGHBOR_COUNT) { j--; break; }
+				j++;
+			}
+
+			r_thr = (j+1)*h/radius_segments;
+
+		}
+
+		mode++;
+	}
+
 }
 
 //=================================

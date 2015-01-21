@@ -39,7 +39,8 @@
 #include "owPhysicsFluidSimulator.h"
 
 float calcDelta();
-extern const float delta = calcDelta();
+float calcDelta_new();
+extern const float delta = calcDelta_new();
 int numOfElasticConnections = 0; // Number of elastic connection TODO: move this to owConfig class
 int numOfLiquidP = 0;			 // Number of liquid particles TODO: move this to owConfig class
 int numOfElasticP = 0;			 // Number of liquid particles TODO: move this to owConfig class
@@ -97,7 +98,7 @@ owPhysicsFluidSimulator::owPhysicsFluidSimulator(owHelper * helper,DEVICE dev_ty
 		//The buffers listed below are only for usability and debug
 		density_cpp = new float[ 1 * config->getParticleCount() ];
 		particleIndex_cpp = new unsigned int[config->getParticleCount() * 2];
-		
+		particleIndex_back_cpp = new unsigned int[config->getParticleCount()];
 		// LOAD FROM FILE	
 		//owHelper::loadConfiguration( position_cpp, velocity_cpp, elasticConnectionsData_cpp, numOfLiquidP, numOfElasticP, numOfBoundaryP, numOfElasticConnections, numOfMembranes,membraneData_cpp, particleMembranesList_cpp, config );		//Load configuration from file to buffer
 		owHelper::generateConfiguration(1,position_cpp,velocity_cpp, numOfLiquidP, numOfElasticP,numOfBoundaryP, config);
@@ -227,7 +228,7 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 	printf("\n[[ Step %d ]]\n",iterationCount);
 	try{
 		//SEARCH FOR NEIGHBOURS PART
-		//ocl_solver->_runClearBuffers();								helper->watch_report("_runClearBuffers: \t%9.3f ms\n");
+		ocl_solver->_runClearBuffers(config);								helper->watch_report("_runClearBuffers: \t%9.3f ms\n");
 		ocl_solver->_runHashParticles(config);							helper->watch_report("_runHashParticles: \t%9.3f ms\n");
 		ocl_solver->_runSort(config);									helper->watch_report("_runSort: \t\t%9.3f ms\n");
 		ocl_solver->_runSortPostPass(config);							helper->watch_report("_runSortPostPass: \t%9.3f ms\n");
@@ -273,10 +274,8 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 			}
 		}
 		/*TODO delete block below after fix*/
-		//if(iterationCount % 100 == 0)
-		//	getDensityDistrib(); //Load histogram of distribution of density to file
 		//Calculating values of volume and density for start and end configuration
-		if(iterationCount == 1300/* || iterationCount == 0*/){
+		if(iterationCount == 4300 || iterationCount == 0){
 			float low;
 			float high;
 			float left, right;
@@ -307,7 +306,8 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 			if(high - low != 0.0f && left - right != 0.0f){
 				float dist_x = fabs(left - right);
 				float dist_y = fabs(high - low);
-				std::ofstream outFile ("./logs/Output_Parametrs.txt");
+				std::string filename = (iterationCount == 0)?"./logs/Output_Parametrs_0.txt":"./logs/Output_Parametrs.txt";
+				std::ofstream outFile (filename.c_str());
 				//if(iterationCount % 1000 == 0)
 				getDensityDistrib(); //Load histogram of distribution of density to file
 				float volume = dist_x * dist_x * dist_y * pow(simulationScale,3.0f);
@@ -350,15 +350,11 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 				outFile << "NearestParticle particle is:" << nearestParticle << "\n";
 				getDensity_cpp();
 				int pib;
-				getParticleIndex_cpp();
-				for(int i=0;i<config->getParticleCount();i++)
-				{
-					pib = particleIndex_cpp[2*i + 1];
-					particleIndex_cpp[2*pib + 0] = i;
-				}
+				getParticleIndexBack_cpp();
+				
 				float * correctDensity = new float[config->getParticleCount() * 1];
 				for(int i=0; i<config->getParticleCount() ;i++)
-					correctDensity[i] = density_cpp[ particleIndex_cpp[ i * 2 + 0 ] ];
+					correctDensity[i] = density_cpp[ particleIndex_back_cpp[i] ];
 				if(nearestParticle > -1)
 					outFile << "Density of nearestParticle particle is:" << correctDensity[nearestParticle] << "\n";
 				outFile.close();
@@ -371,9 +367,26 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 				}
 				owHelper::log_buffer(dist_dens_distr,2, numOfLiquidP,"./logs/density_13000.txt");
 				getNeghboursMap();
-				int startIndex = particleIndex_cpp[2 * nearestParticle + 0] * MAX_NEIGHBOR_COUNT * 2;
+				int startIndex = particleIndex_back_cpp[nearestParticle] * MAX_NEIGHBOR_COUNT;
 				int endIndex = startIndex + MAX_NEIGHBOR_COUNT; 
-				owHelper::log_buffer(neighbourMap_cpp,2, endIndex,"./logs/neighborMap_for_nearestParticle.txt", startIndex);
+				float * neighborCorrect = new float[numOfLiquidP*MAX_NEIGHBOR_COUNT*2];
+				//owHelper::log_buffer(neighbourMap_cpp,2, endIndex,"./logs/neighborMap_for_nearestParticle.txt", startIndex);
+				for(int i=0;i < config->getParticleCount();i++){
+					if((int)position_cpp[4*i+3] != BOUNDARY_PARTICLE){
+						int id = particleIndex_back_cpp[i];
+						int s_id = id * MAX_NEIGHBOR_COUNT;
+						int k = 0;
+						for(int j = i * MAX_NEIGHBOR_COUNT; j < ( i + 1 ) * MAX_NEIGHBOR_COUNT; j++)
+						{
+							neighborCorrect[2 * j + 0] = neighbourMap_cpp[2 * s_id + 2 * k + 0];
+							neighborCorrect[2 * j + 1] = neighbourMap_cpp[2 * s_id + 2 * k + 1];
+							k++;
+						}
+					}
+				}
+				//owHelper::log_buffer(neighbourMap_cpp,2, numOfLiquidP,"./logs/neighborMap_for_nearestParticle.txt");
+				owHelper::log_buffer(neighborCorrect,2, numOfLiquidP,"./logs/neighborMap_for_liquid.txt");
+				owHelper::log_buffer(position_cpp,4, numOfLiquidP,"./logs/position_2300.txt");
 			}
 			//float left;
 			//float right;
@@ -555,6 +568,54 @@ float calcDelta()
 		v_z = z[i] * particleRadius;
 
         dist = sqrt(v_x*v_x+v_y*v_y+v_z*v_z);//scaled, right?
+
+        if (dist <= h*simulationScale)
+        {
+			h_r_2 = pow((h*simulationScale - dist),2);//scaled
+
+            sum1_x += h_r_2 * v_x / dist;
+			sum1_y += h_r_2 * v_y / dist;
+			sum1_z += h_r_2 * v_z / dist;
+			counter++;
+            sum2 += h_r_2 * h_r_2;
+            r_ij2 = dist * dist;
+            density += (hScaled2-r_ij2)*(hScaled2-r_ij2)*(hScaled2-r_ij2);//TODO delete this after fix
+        }
+    }
+    density *= mass_mult_Wpoly6Coefficient;
+	sum1 = sum1_x*sum1_x + sum1_y*sum1_y + sum1_z*sum1_z;
+	double result = 1.0 / (beta * gradWspikyCoefficient * gradWspikyCoefficient * (sum1 + sum2));
+	//return  1.0f / (beta * gradWspikyCoefficient * gradWspikyCoefficient * (sum1 + sum2));
+	return (float)result;
+}
+
+float calcDelta_new()
+{
+	float d[] = { 4.13207e-006, 4.66567e-006, 4.4566e-006, 3.93635e-006, 4.42284e-006, 4.09012e-006, 5.28614e-006, \
+		5.87074e-006, 2.68782e-006, 3.73287e-006, 4.93145e-006, 5.71927e-006, 4.3676e-006, 5.44214e-006, 3.22728e-006, 4.56464e-006, \
+		5.99892e-006, 1.89576e-006, 5.85675e-006, 4.52719e-006, 4.28481e-006, 4.78682e-006, 5.21755e-006, 3.89801e-006, 5.9193e-006, \
+		5.9486e-006, 3.4955e-006, 4.21114e-006, 5.51424e-006, 5.92427e-006, 4.18299e-006, 4.52461e-006};
+	float sum1_x = 0.f;
+	float sum1_y = 0.f;
+	float sum1_z = 0.f;
+    double sum1 = 0.0, sum2 = 0.0;
+	float v_x = 0.f;
+	float v_y = 0.f;
+	float v_z = 0.f;
+	float dist;
+	double density = 0;
+	float hScaled2 = (h * simulationScale) * (h * simulationScale);
+	float r_ij2;
+	/* I suppose that particle radius here should equal to real length of r0 = h/2 (real length r0 * simulationScale)
+	 * because we generate configuration and arrange particles such way that they located from each other not further that r0
+	 */
+	float particleRadius = simulationScale * r0 ;//* 1.13f;/*pow(mass/rho0,1.f/3.f);*/  //
+
+	float h_r_2;
+	int counter = 0;
+    for (int i = 0; i < MAX_NEIGHBOR_COUNT; i++)
+    {
+        dist = d[i];
 
         if (dist <= h*simulationScale)
         {

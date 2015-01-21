@@ -62,7 +62,6 @@ extern int MUSCLE_COUNT;
 #define  OPENCL_DEBUG_PROGRAM_PATH "-g -s \"C:\\GitHub\\Smoothed-Particle-Hydrodynamics\\src\\sphFluid.cl\"" // if you debuging with intel opencl debuger you need past here full path to you opencl program
 #endif
 #define OPENCL_PROGRAM_PATH "src/sphFluid.cl"
-
 //OpenCL solver class
 class owOpenCLSolver
 {
@@ -101,6 +100,7 @@ public:
 	void read_density_buffer( float * density_cpp, owConfigProrerty * config ) { copy_buffer_from_device( density_cpp, rho, config->getParticleCount() * sizeof( float ) * 1 ); }; // This need only for visualization current density of particle (graphic effect)
 	void read_particleIndex_buffer( unsigned int * particleIndexBuffer, owConfigProrerty * config ) { copy_buffer_from_device( particleIndexBuffer, particleIndex, config->getParticleCount() * sizeof( unsigned int ) * 2 ); }; // This need only for visualization current density of particle (graphic effect)
 	void read_NeighbourMap_buffer(float * neighbourMap_cpp, owConfigProrerty * config ) { copy_buffer_from_device( neighbourMap_cpp, neighborMap, MAX_NEIGHBOR_COUNT * config->getParticleCount() * sizeof( float ) * 2 ); };
+	void read_ParticleIndexBack(unsigned int * particleIndex_back_cpp, owConfigProrerty * config) { copy_buffer_from_device(particleIndex_back_cpp,particleIndexBack,config->getParticleCount() * sizeof(unsigned int)); };
 	void reset(const float * position_cpp, const float * velocity_cpp, owConfigProrerty * config, const float * elasticConnectionsData_cpp = NULL, const int * membraneData_cpp = NULL, const int * particleMembranesList_cpp = NULL);
 private:
 	void create_ocl_kernel( const char *name, cl::Kernel &k );

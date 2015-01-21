@@ -97,18 +97,20 @@ int owHelper::generateConfiguration(int stage, float *position_cpp, float *veloc
 	float *positionVector;
 	float *velocityVector;
 	int pCount = 0;
+	float mult = 1.0f;
+	float s = 0.86f;
 	numOfElasticP = 0;
 	config->xmin = 0.0f;
 	config->xmax = 8.0f*h;
 	config->ymin = 0.0f;
-	config->ymax = 20.0f*h;
+	config->ymax = 25.0f*h * mult;
 	config->zmin = 0.0f;
 	config->zmax = 8.0f*h;
-	for(x=config->xmax/2.0f - 5.0f * r0;x<config->xmax/2.0f + 5.0f * r0;x+=r0)
+	for(x=config->xmax/2.0f - 5.0f * r0;x<config->xmax/2.0f + 5.0f * r0;x+=r0*s)
 	{
-		for(y=config->ymax/2.0f  - 10.0f * r0;y<config->ymax/2.0f  + 10.0f * r0;y+=r0)
+		for(y=config->ymax/2.0f  - 15.0f * r0 * mult;y<config->ymax/2.0f  + 18.0f * r0 * mult;y+=r0*s)
 		{
-			for(z=config->zmax/2.0f - 5.0f * r0;z<config->zmax/2.0f  + 5.0f * r0;z+=r0)
+			for(z=config->zmax/2.0f - 5.0f * r0;z<config->zmax/2.0f  + 5.0f * r0;z+=r0*s)
 			{
 				if(stage==1)
 				{
