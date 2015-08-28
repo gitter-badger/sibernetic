@@ -72,6 +72,8 @@ owOpenCLSolver::owOpenCLSolver(const float * position_cpp, const float * velocit
 		create_ocl_buffer( "sortedVelocity", sortedVelocity, CL_MEM_READ_WRITE, ( config->getParticleCount() * sizeof( float ) * 4 ) );
 		create_ocl_buffer( "velocity", velocity, CL_MEM_READ_WRITE, ( config->getParticleCount() * sizeof( float ) * 4 * (1 + 1/*1 extra, for membrane handling*/) ) );
 		create_ocl_buffer( "muscle_activation_signal", muscle_activation_signal, CL_MEM_READ_WRITE, ( config->MUSCLE_COUNT * sizeof( float ) ) );
+
+		create_ocl_buffer( "normales", normales, CL_MEM_READ_WRITE, ( config->getParticleCount() * sizeof( float ) * 4 ) );
 		// Create OpenCL kernels
 		create_ocl_kernel("clearBuffers", clearBuffers);
 		create_ocl_kernel("findNeighbors", findNeighbors);
@@ -87,6 +89,9 @@ owOpenCLSolver::owOpenCLSolver(const float * position_cpp, const float * velocit
 		create_ocl_kernel("pcisph_computePressureForceAcceleration", pcisph_computePressureForceAcceleration);
 		create_ocl_kernel("pcisph_computeDensity", pcisph_computeDensity);
 		create_ocl_kernel("pcisph_computeElasticForces", pcisph_computeElasticForces);
+
+		create_ocl_kernel("pcisph_computeNormales", pcisph_computeNormales);
+		create_ocl_kernel("pcisph_calcSurfaceTension", pcisph_calcSurfaceTension);
 		// membrane handling kernels
 		create_ocl_kernel("clearMembraneBuffers",clearMembraneBuffers);
 		create_ocl_kernel("computeInteractionWithMembranes",computeInteractionWithMembranes);
@@ -588,6 +593,70 @@ unsigned int owOpenCLSolver::_run_pcisph_computeDensity(owConfigProrerty * confi
 #endif
 	return err;
 }
+
+
+unsigned int owOpenCLSolver::_run_pcisph_calcSurfaceTension(owConfigProrerty * config){
+	pcisph_calcSurfaceTension.setArg( 0, sortedPosition );
+	pcisph_calcSurfaceTension.setArg( 1, neighborMap );
+	pcisph_calcSurfaceTension.setArg( 2, particleIndexBack );
+	pcisph_calcSurfaceTension.setArg( 3, normales );
+	pcisph_calcSurfaceTension.setArg( 4, rho );
+	pcisph_calcSurfaceTension.setArg( 5, mass_mult_c_coeff );
+	pcisph_calcSurfaceTension.setArg( 6, _hScaled );
+	pcisph_calcSurfaceTension.setArg( 7, _hScaled6 );
+	pcisph_calcSurfaceTension.setArg( 8, config->getParticleCount() );
+	pcisph_calcSurfaceTension.setArg( 9, gammaConst );
+	pcisph_calcSurfaceTension.setArg( 10, rho0 );
+	pcisph_calcSurfaceTension.setArg( 11, acceleration );
+	pcisph_calcSurfaceTension.setArg( 12, position );
+	pcisph_calcSurfaceTension.setArg( 13, particleIndex );
+	int err = queue.enqueueNDRangeKernel(
+			pcisph_calcSurfaceTension, cl::NullRange, cl::NDRange( (int) (  config->getParticleCount_RoundUp() ) ),
+	#if defined( __APPLE__ )
+			cl::NullRange, NULL, NULL );
+	#else
+			cl::NDRange( (int)( local_NDRange_size ) ), NULL, NULL );
+	#endif
+	#if QUEUE_EACH_KERNEL
+		queue.finish();
+	#endif
+		return err;
+}
+//Kernels functions definition
+/** Run clearing neighbor map
+ *
+ *  This function is depreciated and will be removed in next releases.
+ *
+ *  @param config
+ *  Contain information about simulating configuration
+ *  @return value taking after enqueue a command to execute a kernel on a device.
+ *  More info here (http://www.khronos.org/registry/cl/sdk/1.0/docs/man/xhtml/clEnqueueNDRangeKernel.html)
+ */
+unsigned int owOpenCLSolver::_run_pcisph_computeNormales(owConfigProrerty * config)
+{
+	// Stage ClearBuffers
+	pcisph_computeNormales.setArg( 0, neighborMap );
+	pcisph_computeNormales.setArg( 1, config->getParticleCount() );
+	pcisph_computeNormales.setArg( 2, rho );
+	pcisph_computeNormales.setArg( 3, normales );
+	pcisph_computeNormales.setArg( 4, particleIndexBack );
+	pcisph_computeNormales.setArg( 5, mass_mult_gradWspikyCoefficient );
+	pcisph_computeNormales.setArg( 6, sortedPosition );
+	pcisph_computeNormales.setArg( 7, _hScaled );
+	int err = queue.enqueueNDRangeKernel(pcisph_computeNormales, cl::NullRange, cl::NDRange( (int) ( config->getParticleCount_RoundUp() ) ),
+#if defined( __APPLE__ )
+		cl::NullRange, NULL, NULL );
+#else
+		cl::NDRange( (int)( local_NDRange_size ) ), NULL, NULL );
+#endif
+#if QUEUE_EACH_KERNEL
+	queue.finish();
+#endif
+	return err;
+}
+
+
+
 /** Run pcisph_computeForcesAndInitPressure kernel
  *
  *  The kernel initializes pressure by 0.

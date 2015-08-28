@@ -172,7 +172,7 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 	// here we plan to implement the part of openworm sensory system, which is still
 	// one of the grand challenges of this project
 
-	//if(iterationCount==0) return 0.0;//uncomment this line to stop movement of the scene
+	//if(iterationCount==1) return 0.0;//uncomment this line to stop movement of the scene
 
 	helper->refreshTime();
 	printf("\n[[ Step %d ]]\n",iterationCount);
@@ -192,6 +192,8 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 		}
 		ocl_solver->_run_pcisph_computeDensity(config);
 		ocl_solver->_run_pcisph_computeForcesAndInitPressure(config);
+		ocl_solver->_run_pcisph_computeNormales(config);
+		ocl_solver->_run_pcisph_calcSurfaceTension(config);
 		ocl_solver->_run_pcisph_computeElasticForces(config);
 		do{
 			//printf("\n^^^^ iter %d ^^^^\n",iter);

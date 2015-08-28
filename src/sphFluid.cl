@@ -509,6 +509,99 @@ __kernel void pcisph_computeDensity(
 	rho[ id ] = density;
 }
 
+__kernel void pcisph_computeNormales(
+							 __global float2 * neighborMap,
+							 int PARTICLE_COUNT,
+							 __global float * rho,
+							 __global float4 * normales,
+							 __global uint * particleIndexBack,
+							 float mass_mult_gradWspikyCoefficient,
+							 __global float4 * sortedPosition,
+							 float hScaled )
+{
+	int id = get_global_id( 0 );
+	if( id >= PARTICLE_COUNT ) return;	
+	id = particleIndexBack[id];			//track selected particle (indices are not shuffled anymore)
+	int idx = id * MAX_NEIGHBOR_COUNT;
+	int jd;
+	float4 result = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	float density;
+	float r_ij;
+	int nc = 0;//neighbor counter	
+	do{
+		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID )
+		{
+			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
+			density = rho[ jd ];
+			//r_ij2 = r_ij * r_ij;
+			result += -(hScaled -r_ij) * (hScaled -r_ij) * ( sortedPosition[id] - sortedPosition[jd] );
+			result /= density;
+		}
+	}while(++nc < MAX_NEIGHBOR_COUNT);
+	result *= mass_mult_gradWspikyCoefficient * hScaled;
+	normales[id] = result;
+}
+
+__kernel void pcisph_calcSurfaceTension(
+										__global float4 * sortedPosition,
+										__global float2 * neighborMap,
+										__global uint * particleIndexBack,
+										__global float4 * normales,
+										__global float * rho,
+										float c_coeff,
+										float hScaled,
+										float hScaled6,
+										int PARTICLE_COUNT,
+										float gamma,
+										float ro0,
+										__global float4 * acceleration,
+										__global float4 * position,
+										__global uint2 * particleIndex
+										)
+{
+	//http://cg.informatik.uni-freiburg.de/publications/siggraphasia2013/2013_SIGGRAPHASIA_surface_tension_adhesion.pdf
+	int id = get_global_id( 0 );
+	if( id >= PARTICLE_COUNT ) return;	
+	id = particleIndexBack[id];			//track selected particle (indices are not shuffled anymore)
+	int id_source_particle = PI_SERIAL_ID( particleIndex[id] );
+	if((int)(position[ id_source_particle ].w) == BOUNDARY_PARTICLE){
+		return;
+	}
+	int idx = id * MAX_NEIGHBOR_COUNT;
+	int jd;
+	float4 result = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	float density;
+	float r_ij;
+	int nc = 0;//neighbor counter	
+	float4 f_cohesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	float4 f_curvature = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	float4 f_tension = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	float c_value = 0.f;
+	do{
+		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID )
+		{
+			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
+			//calc f coheian
+			if(2.f * r_ij > hScaled)
+				c_value = (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij;
+			else if(r_ij > 0.f && 2.f*r_ij <= hScaled)
+				c_value = 2.f * (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij - hScaled6;
+			f_cohesion = c_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
+			//calc f curvature
+			f_curvature = (normales[id] - normales[jd]);
+			
+			f_cohesion *= c_coeff ;
+			
+			f_tension += (f_cohesion + f_tension) / (rho[id] + rho[jd]);
+		}
+	}while(++nc < MAX_NEIGHBOR_COUNT);
+	
+	f_tension *= -(0.00001f) * 2.0f * ro0;
+	if(id == 0)
+		printf("f tenstion is:%f , %f , %f\n",f_tension.x,f_tension.y,f_tension.z);
+	acceleration[ id ] += f_tension;	
+}
+
 /** Run pcisph_computeForcesAndInitPressure kernel
  *  The kernel initializes pressure by 0.
  *  Calculating viscosity and surface tension forces
@@ -589,18 +682,18 @@ __kernel void pcisph_computeForcesAndInitPressure(
 				// surface tension force
 				//accel_surfTensForce += surfTensCoeff * (sortedPosition[id]-sortedPosition[jd]); // Caculating surface tension forces impact to acceleration
 																								// formula (16) [5]
-				float surffKern = (hScaled2 -r_ij2) * (hScaled2 -r_ij2) * (hScaled2 -r_ij2);
-				accel_surfTensForce += -1.7e-09f /*-1.9e-09f*/ * surfTensCoeff * surffKern * (sortedPosition[id]-sortedPosition[jd]);
+				//float surffKern = (hScaled2 -r_ij2) * (hScaled2 -r_ij2) * (hScaled2 -r_ij2);
+				//accel_surfTensForce += -1.7e-09f /*-1.9e-09f*/ * surfTensCoeff * surffKern * (sortedPosition[id]-sortedPosition[jd]);
 			}
 		}
 	}while(  ++nc < MAX_NEIGHBOR_COUNT );
-	accel_surfTensForce.w = 0.f;
-	accel_surfTensForce /= mass;
+	//accel_surfTensForce.w = 0.f;
+	//accel_surfTensForce /= mass;
 	accel_viscosityForce *= mu * mass_mult_divgradWviscosityCoefficient / rho[id];
 	// apply external forces
 	acceleration_i = accel_viscosityForce;
 	acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f );
-	acceleration_i +=  accel_surfTensForce; //29aug_A.Palyanov
+	//acceleration_i +=  accel_surfTensForce; //29aug_A.Palyanov
 	acceleration[ id ] = acceleration_i;
 	// 1st half of 'acceleration' array is used to store acceleration corresponding to gravity, visc. force etc.
 	acceleration[ PARTICLE_COUNT+id ] = (float4)(0.0f, 0.0f, 0.0f, 0.0f );

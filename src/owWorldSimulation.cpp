@@ -62,6 +62,7 @@ double prevTime;
 unsigned int * p_indexb;
 float * d_cpp;
 float * p_cpp;
+float * v_cpp;
 float * ec_cpp;
 float * muscle_activation_signal_cpp;
 int   * md_cpp;// pointer to membraneData_cpp
@@ -142,6 +143,7 @@ void display(void)
 				p_indexb[2*pib + 0] = i;
 			}
 			p_cpp = fluid_simulation->getPosition_cpp();
+			v_cpp = fluid_simulation->getvelocity_cpp();
 			d_cpp = fluid_simulation->getDensity_cpp();
 			ec_cpp = fluid_simulation->getElasticConnectionsData_cpp();
 			if(fluid_simulation->getIteration() == localConfig->getNumberOfIteration()){
@@ -207,6 +209,12 @@ void display(void)
 				err_coord_cnt++;
 				endWinCoords();
 			}
+		}else if((int)p_cpp[i*4 + 3] == BOUNDARY_PARTICLE){
+			/*glBegin(GL_LINES);
+			glVertex3f( (p_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
+			glColor4b(255/2, 255/2, 255/2, 255/2);
+			glVertex3f( ( p_cpp[i*4+0] + v_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1] + v_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2] + v_cpp[i*4+2]-localConfig->zmax/2)*sc );
+			glEnd();*/
 		}
 	}
 	glLineWidth((GLfloat)0.1);

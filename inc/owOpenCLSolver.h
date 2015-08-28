@@ -80,6 +80,8 @@ public:
 	unsigned int _runFindNeighbors(owConfigProrerty * config);
 	//PCISPH kernels for physics-related calculations
 	unsigned int _run_pcisph_computeDensity(owConfigProrerty * config);
+	unsigned int _run_pcisph_computeNormales(owConfigProrerty * config);
+	unsigned int _run_pcisph_calcSurfaceTension(owConfigProrerty * config);
 	unsigned int _run_pcisph_computeForcesAndInitPressure(owConfigProrerty * config);
 	unsigned int _run_pcisph_computeElasticForces(owConfigProrerty * config);
 	unsigned int _run_pcisph_predictPositions(owConfigProrerty * config);
@@ -135,6 +137,7 @@ private:
                                             // each cell can contain -1 in case when no or no more membranes are associated with this particle,
                                             // or the index of corresponding membrane in membraneData list otherwise
 
+	cl::Buffer normales;
 	// Kernels
 	cl::Kernel clearBuffers;
 	cl::Kernel findNeighbors;
@@ -143,6 +146,7 @@ private:
 	cl::Kernel sortPostPass;
 	//PCISPH kernels
 	cl::Kernel pcisph_computeDensity;
+	cl::Kernel pcisph_computeNormales;
 	cl::Kernel pcisph_computeForcesAndInitPressure;
 	cl::Kernel pcisph_integrate;
 	cl::Kernel pcisph_predictPositions;
@@ -150,6 +154,7 @@ private:
 	cl::Kernel pcisph_correctPressure;
 	cl::Kernel pcisph_computePressureForceAcceleration;
 	cl::Kernel pcisph_computeElasticForces;
+	cl::Kernel pcisph_calcSurfaceTension;
 	//
 	//cl::Kernel prepareMembranesList;
 	cl::Kernel clearMembraneBuffers;
