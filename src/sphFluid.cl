@@ -515,7 +515,7 @@ __kernel void pcisph_computeNormales(
 							 __global float * rho,
 							 __global float4 * normales,
 							 __global uint * particleIndexBack,
-							 float mass_mult_gradWspikyCoefficient,
+							 float mass_mult_gradcubicSpline,
 							 __global float4 * sortedPosition,
 							 float hScaled )
 {
@@ -534,11 +534,14 @@ __kernel void pcisph_computeNormales(
 			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
 			density = rho[ jd ];
 			//r_ij2 = r_ij * r_ij;
-			result += -(hScaled -r_ij) * (hScaled -r_ij) * ( sortedPosition[id] - sortedPosition[jd] );
+			if(r_ij < hScaled/2.f)
+				result += (4.f*(hScaled -r_ij) * (hScaled -r_ij)-(2.f * hScaled -r_ij) * (2.f * hScaled -r_ij)) * 						  ( sortedPosition[id] - sortedPosition[jd] );
+			else
+				result += -(2.f * hScaled -r_ij) * (2.f * hScaled -r_ij) * 						  ( sortedPosition[id] - sortedPosition[jd] );
 			result /= density;
 		}
 	}while(++nc < MAX_NEIGHBOR_COUNT);
-	result *= mass_mult_gradWspikyCoefficient * hScaled;
+	result *= mass_mult_gradcubicSpline * hScaled;
 	normales[id] = result;
 }
 
@@ -556,7 +559,8 @@ __kernel void pcisph_calcSurfaceTension(
 										float ro0,
 										__global float4 * acceleration,
 										__global float4 * position,
-										__global uint2 * particleIndex
+										__global uint2 * particleIndex,
+										float mass_mult_AVAL
 										)
 {
 	//http://cg.informatik.uni-freiburg.de/publications/siggraphasia2013/2013_SIGGRAPHASIA_surface_tension_adhesion.pdf
@@ -569,21 +573,33 @@ __kernel void pcisph_calcSurfaceTension(
 	}
 	int idx = id * MAX_NEIGHBOR_COUNT;
 	int jd;
-	float4 result = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float density;
 	float r_ij;
 	int nc = 0;//neighbor counter	
 	float4 f_cohesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_curvature = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_tension = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	float4 f_adhesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float c_value = 0.f;
+	float a_value = 0.f;
+	int id_b_source_particle;
+	float delta=0.f;
 	do{
 		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID )
 		{
+			a_value = 0.f;
+			c_value = 0.f;
+			delta = 0.f;
 			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
 			//calc f coheian
-			if(2.f * r_ij > hScaled)
+			if(2.f * r_ij > hScaled){
 				c_value = (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij;
+				id_b_source_particle = PI_SERIAL_ID( particleIndex[jd] );
+				if((int)position[id_b_source_particle].w == BOUNDARY_PARTICLE){
+					a_value = pow((-4.0f*r_ij*r_ij/hScaled + 6.f*r_ij - 2.f*hScaled),0.25);	
+					delta = ro0/rho[jd];
+				}
+			}
 			else if(r_ij > 0.f && 2.f*r_ij <= hScaled)
 				c_value = 2.f * (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij - hScaled6;
 			f_cohesion = c_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
@@ -593,13 +609,16 @@ __kernel void pcisph_calcSurfaceTension(
 			f_cohesion *= c_coeff ;
 			
 			f_tension += (f_cohesion + f_tension) / (rho[id] + rho[jd]);
+			
+			f_adhesion += delta * a_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
 		}
 	}while(++nc < MAX_NEIGHBOR_COUNT);
 	
-	f_tension *= -(0.00001f) * 2.0f * ro0;
-	if(id == 0)
-		printf("f tenstion is:%f , %f , %f\n",f_tension.x,f_tension.y,f_tension.z);
-	acceleration[ id ] += f_tension;	
+	f_tension *= -(0.000005f) * 2.0f * ro0;
+	f_adhesion *= -(0.0005f);
+	//printf("f tenstion is:%f , %f , %f\n",f_curvature.x,f_curvature.y,f_curvature.z);
+	acceleration[ id ] += f_tension;
+	acceleration[ id ] += f_adhesion;
 }
 
 /** Run pcisph_computeForcesAndInitPressure kernel

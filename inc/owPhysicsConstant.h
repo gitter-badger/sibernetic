@@ -128,7 +128,7 @@ const double divgradWviscosityCoefficient = - gradWspikyCoefficient;            
 			   z/
  */
 const float gravity_x = 0.0f;                       // Value of vector Gravity component x
-const float gravity_y = 0.0f;//-9.8f;                      // Value of vector Gravity component y
+const float gravity_y = -9.8f;                      // Value of vector Gravity component y
 const float gravity_z = 0.0f;                       // Value of vector Gravity component z
 const int maxIteration = 3;                         // Number of iterations for Predictive-Corrective scheme
 
@@ -151,9 +151,12 @@ const float elasticityCoefficient = 2e-05f / mass; // Elasticity coefficient. Ac
                                                       // elasticity coefficient (elasticity coefficient = 1.95e-05f)
                                                       // But for decreasing number of repeating calculation we suppose that  elasticityCoefficient = 1.95e-05f / mass
 
-const double c_coeff = 32 / (M_PI * pow ((double)(_hScaled),9.0));
+const double c_coeff = 32.0 / (M_PI * pow ((double)(_hScaled),9.0));
 const float mass_mult_c_coeff = (float)((double) mass * c_coeff);
 const float _hScaled6 = _hScaled2 * _hScaled2 * _hScaled2 / 64.f;
 const float gammaConst = 0.1f;
-
+const double gradcubicSpline = 3.0/(4.0*M_PI* pow((double)(_hScaled),6.0));
+const float mass_mult_gradcubicSpline = (float)((double)mass * gradcubicSpline);
+const double AVAL = 0.007/pow((double)_hScaled,3.25);
+const float mass_mult_AVAL = (float)((double)mass*AVAL);
 #endif // #ifndef OW_PHYSICS_CONSTANT_H
