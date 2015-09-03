@@ -63,6 +63,7 @@ unsigned int * p_indexb;
 float * d_cpp;
 float * p_cpp;
 float * v_cpp;
+float * a_cpp;
 float * ec_cpp;
 float * muscle_activation_signal_cpp;
 int   * md_cpp;// pointer to membraneData_cpp
@@ -144,6 +145,7 @@ void display(void)
 			}
 			p_cpp = fluid_simulation->getPosition_cpp();
 			v_cpp = fluid_simulation->getvelocity_cpp();
+			a_cpp = fluid_simulation->getAcceleration_cpp();
 			d_cpp = fluid_simulation->getDensity_cpp();
 			ec_cpp = fluid_simulation->getElasticConnectionsData_cpp();
 			if(fluid_simulation->getIteration() == localConfig->getNumberOfIteration()){
@@ -162,6 +164,10 @@ void display(void)
 	glBegin(GL_POINTS);
 	float dc, rho;
 	//Display all particles
+	if(fluid_simulation->getIteration() % 100 == 0)
+		owHelper::log_buffer(a_cpp,4,localConfig->getParticleCount(),"./logs/vel_log");
+	float center[]= {0.0f,0.0f,0.0f};
+	float force[]= {0.0f,0.0f,0.0f};
 	for(i = 0; i<localConfig->getParticleCount(); i++)
 	{
 		if(!load_from_file){
@@ -172,13 +178,11 @@ void display(void)
 			if(dc>1.f) dc = 1.f;
 			//  R   G   B
 			glColor4f(  0,  0,  1, 1.0f);//blue
-			if(!load_from_file){
-				if( (dc=100*(rho-rho0*1.00f)/rho0) >0 )	glColor4f(   0,  dc,   1,1.0f);//cyan
-				if( (dc=100*(rho-rho0*1.01f)/rho0) >0 )	glColor4f(   0,   1,1-dc,1.0f);//green
-				if( (dc=100*(rho-rho0*1.02f)/rho0) >0 )	glColor4f(  dc,   1,   0,1.0f);//yellow
-				if( (dc=100*(rho-rho0*1.03f)/rho0) >0 )	glColor4f(   1,1-dc,   0,1.0f);//red
-				if( (dc=100*(rho-rho0*1.04f)/rho0) >0 )	glColor4f(   1,   0,   0,1.0f);
-			}
+			if( (dc=100*(rho-rho0*1.00f)/rho0) >0 )	glColor4f(   0,  dc,   1,1.0f);//cyan
+			if( (dc=100*(rho-rho0*1.01f)/rho0) >0 )	glColor4f(   0,   1,1-dc,1.0f);//green
+			if( (dc=100*(rho-rho0*1.02f)/rho0) >0 )	glColor4f(  dc,   1,   0,1.0f);//yellow
+			if( (dc=100*(rho-rho0*1.03f)/rho0) >0 )	glColor4f(   1,1-dc,   0,1.0f);//red
+			if( (dc=100*(rho-rho0*1.04f)/rho0) >0 )	glColor4f(   1,   0,   0,1.0f);
 		}
 		else
 			glColor4f(  0,  0,  1, 1.0f);//blue
@@ -193,6 +197,13 @@ void display(void)
 			glVertex3f( (p_cpp[i*4]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
 			glPointSize(3.f);
 			glEnd();
+			center[0] += (p_cpp[i*4]-localConfig->xmax/2)*sc;
+			center[1] += (p_cpp[i*4 + 1]-localConfig->ymax/2)*sc;
+			center[2] += (p_cpp[i*4 + 2]-localConfig->zmax/2)*sc;
+
+			force[0] += (p_cpp[i*4+0] + a_cpp[i*4+0]-localConfig->xmax/2)*sc;
+			force[1] += (p_cpp[i*4+1] + a_cpp[i*4+1]-localConfig->ymax/2)*sc;
+			force[2] += (p_cpp[i*4+2] + a_cpp[i*4+2]-localConfig->zmax/2)*sc;
 
 			if(!((p_cpp[i*4  ]>=0)&&(p_cpp[i*4  ]<=localConfig->xmax)&&
 				(p_cpp[i*4+1]>=0)&&(p_cpp[i*4+1]<=localConfig->ymax)&&
@@ -209,6 +220,11 @@ void display(void)
 				err_coord_cnt++;
 				endWinCoords();
 			}
+			glBegin(GL_LINES);
+			glVertex3f( (p_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
+			glColor4b(100, 100, 100, 100);
+			glVertex3f( ( p_cpp[i*4+0] + v_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1] + v_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2] + v_cpp[i*4+2]-localConfig->zmax/2)*sc );
+			glEnd();
 		}else if((int)p_cpp[i*4 + 3] == BOUNDARY_PARTICLE){
 			/*glBegin(GL_LINES);
 			glVertex3f( (p_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
@@ -217,7 +233,24 @@ void display(void)
 			glEnd();*/
 		}
 	}
+	glLineWidth((GLfloat)1.0);
+	center[0] /= localConfig->numOfLiquidP;
+	center[1] /= localConfig->numOfLiquidP;
+	center[2] /= localConfig->numOfLiquidP;
+
+	force[0] /= localConfig->numOfLiquidP;
+	force[1] /= localConfig->numOfLiquidP;
+	force[2] /= localConfig->numOfLiquidP;
+
+	glBegin(GL_LINES);
+	glVertex3f( center[0] , center[1], center[2] );
+	glColor4b(255/2, 255/2, 255/2, 255/2);
+	glVertex3f( force[0]*2 , force[1]*2, force[2]*2 );
+	glEnd();
+
 	glLineWidth((GLfloat)0.1);
+
+
 	int ecc=0;//elastic connections counter;
 	//Display elastic connections
 	for(int i_ec=0; i_ec < localConfig->numOfElasticP * MAX_NEIGHBOR_COUNT; i_ec++)
@@ -329,9 +362,11 @@ void display(void)
 	}
 	glLineWidth((GLfloat)1.0);
 	glutSwapBuffers();
-	helper->watch_report("graphics: \t\t%9.3f ms\n====================================\n");
-	renderTime = helper->getElapsedTime();
-	totalTime += calculationTime + renderTime;
+	if(!sPause){
+		helper->watch_report("graphics: \t\t%9.3f ms\n====================================\n");
+		renderTime = helper->getElapsedTime();
+		totalTime += calculationTime + renderTime;
+	}
 	calculateFPS();
 }
 /** Drawing main scene and bounding box

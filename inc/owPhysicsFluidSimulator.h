@@ -65,6 +65,15 @@ public:
 	 *  @return velocity_cpp
 	 */
 	float * getvelocity_cpp() { ocl_solver->read_velocity_buffer(velocity_cpp,config); return velocity_cpp; };
+	/** Getter for acceleration_cpp buffer
+	 *
+	 *  When run this method information about new value of velocity
+	 *  getting from OpenCL memory
+	 *  it use owOpenCLSolver::read_acceleration_buffer(...) method
+	 *
+	 *  @return acceleration_cpp
+	 */
+	float * getAcceleration_cpp() { ocl_solver->read_acceleration_buffer(acceleration_cpp,config); return acceleration_cpp; }
 	/** Getter for density_cpp buffer
 	 *
 	 *  When run this method information about new values of density
@@ -125,6 +134,7 @@ private:
 	float * elasticConnectionsData_cpp; // copied later to OpenCL buffer %variableName%
 	int	  * membraneData_cpp;
 	int   * particleMembranesList_cpp;
+	float * acceleration_cpp;
 	//Muscle contraction data buffer
 	float * muscle_activation_signal_cpp;
 	//Helper arrays for displaying information about density changes

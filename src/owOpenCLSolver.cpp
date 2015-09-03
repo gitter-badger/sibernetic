@@ -611,6 +611,7 @@ unsigned int owOpenCLSolver::_run_pcisph_calcSurfaceTension(owConfigProrerty * c
 	pcisph_calcSurfaceTension.setArg( 12, position );
 	pcisph_calcSurfaceTension.setArg( 13, particleIndex );
 	pcisph_calcSurfaceTension.setArg( 14, mass_mult_AVAL );
+	pcisph_calcSurfaceTension.setArg( 15, mass );
 	int err = queue.enqueueNDRangeKernel(
 			pcisph_calcSurfaceTension, cl::NullRange, cl::NDRange( (int) (  config->getParticleCount_RoundUp() ) ),
 	#if defined( __APPLE__ )
@@ -641,9 +642,11 @@ unsigned int owOpenCLSolver::_run_pcisph_computeNormales(owConfigProrerty * conf
 	pcisph_computeNormales.setArg( 2, rho );
 	pcisph_computeNormales.setArg( 3, normales );
 	pcisph_computeNormales.setArg( 4, particleIndexBack );
-	pcisph_computeNormales.setArg( 5, mass_mult_gradcubicSpline );
+	pcisph_computeNormales.setArg( 5, /*mass_mult_gradWspikyCoefficient*/mass_mult_gradcubicSpline );
 	pcisph_computeNormales.setArg( 6, sortedPosition );
 	pcisph_computeNormales.setArg( 7, _hScaled );
+	pcisph_computeNormales.setArg( 8, particleIndex );
+	pcisph_computeNormales.setArg( 9, position );
 	int err = queue.enqueueNDRangeKernel(pcisph_computeNormales, cl::NullRange, cl::NDRange( (int) ( config->getParticleCount_RoundUp() ) ),
 #if defined( __APPLE__ )
 		cl::NullRange, NULL, NULL );

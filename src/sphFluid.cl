@@ -31,7 +31,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  *******************************************************************************/
 
-/* Equations referenced here are from [3].
+/** Equations referenced here are from [3].
  * Next literature was used during development Sibernnetic:
  * PCISPH - [1] Solenthaler (Dissertation)
  *        - [2] http://www.ifi.uzh.ch/vmml/publications/pcisph/pcisph.pdf
@@ -43,7 +43,12 @@
  * Surface Tension - [5] M. Becker, M. Teschner. Weakly compressible SPH for free surface flows
  *                       // Proceedings of the 2007 ACM SIGGRAPH/Eurographics
  *                       symposium on Computer animation, pages 209-217.
- */
+ *                   [6] N. Akinci, G. Akinci, M. Teschner,
+ *                       "Versatile Surface Tension and Adhesion For SPH Fluids", ACM Transactions on Graphics (Proc. SIGGRAPH Asia 2013)
+ *                      link - http://cg.informatik.uni-freiburg.de/publications/siggraphasia2013/2013_SIGGRAPHASIA_surface_tension_adhesion.pdf
+ *                   [7] J J Monaghan. Smoothed particle hydrodynamics 2005
+ *                      link - http://cg.informatik.uni-freiburg.de/intern/seminar/particleFluids_Monaghan%20-%20SPH%20-%202005.pdf
+*/
 
 #define MAX_NEIGHBOR_COUNT 32
 
@@ -508,7 +513,11 @@ __kernel void pcisph_computeDensity(
 	density *= mass_mult_Wpoly6Coefficient; // since all particles are same fluid type, factor this out to here
 	rho[ id ] = density;
 }
-
+/** Calculation of normales for all particles ( only moving particles not boundary it already has normales)
+ *  see here [6] - http://cg.informatik.uni-freiburg.de/publications/siggraphasia2013/2013_SIGGRAPHASIA_surface_tension_adhesion.pdf
+ *  2.2 
+ *  ans here [7] - http://cg.informatik.uni-freiburg.de/intern/seminar/particleFluids_Monaghan%20-%20SPH%20-%202005.pdf
+ */ 
 __kernel void pcisph_computeNormales(
 							 __global float2 * neighborMap,
 							 int PARTICLE_COUNT,
@@ -517,11 +526,18 @@ __kernel void pcisph_computeNormales(
 							 __global uint * particleIndexBack,
 							 float mass_mult_gradcubicSpline,
 							 __global float4 * sortedPosition,
-							 float hScaled )
+							 float hScaled,
+							 __global uint2 * particleIndex,
+							 __global float4 * position
+							 )
 {
 	int id = get_global_id( 0 );
 	if( id >= PARTICLE_COUNT ) return;	
 	id = particleIndexBack[id];			//track selected particle (indices are not shuffled anymore)
+	int id_source_particle = PI_SERIAL_ID( particleIndex[id] );
+	if((int)(position[ id_source_particle ].w) == BOUNDARY_PARTICLE){
+		return;
+	}
 	int idx = id * MAX_NEIGHBOR_COUNT;
 	int jd;
 	float4 result = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
@@ -533,18 +549,24 @@ __kernel void pcisph_computeNormales(
 		{
 			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
 			density = rho[ jd ];
-			//r_ij2 = r_ij * r_ij;
-			if(r_ij < hScaled/2.f)
-				result += (4.f*(hScaled -r_ij) * (hScaled -r_ij)-(2.f * hScaled -r_ij) * (2.f * hScaled -r_ij)) * 						  ( sortedPosition[id] - sortedPosition[jd] );
-			else
-				result += -(2.f * hScaled -r_ij) * (2.f * hScaled -r_ij) * 						  ( sortedPosition[id] - sortedPosition[jd] );
+			// For calculating we're using cubic spline form [7] formula 2.6 
+			if(r_ij < hScaled)
+				result += (3.f * r_ij - 4.f*hScaled) * ( sortedPosition[id] - sortedPosition[jd] );
+			else//Actually it's imposible TODO remove this statement
+				result += (-1.f) * (-2.f * hScaled + r_ij) * (-2.f * hScaled + r_ij) * ( sortedPosition[id] - sortedPosition[jd] )/r_ij;
+			//result += -(hScaled -r_ij) * (hScaled -r_ij) * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
 			result /= density;
 		}
 	}while(++nc < MAX_NEIGHBOR_COUNT);
-	result *= mass_mult_gradcubicSpline * hScaled;
+	result *= mass_mult_gradcubicSpline; // we have divided on hScale and on mass yet
+	result.w = 0.f;
 	normales[id] = result;
 }
 
+#define DEBUGING // TODO After fixing delete this 
+/** Calculating surface tension force
+ * method was described here [6] - http://cg.informatik.uni-freiburg.de/publications/siggraphasia2013/2013_SIGGRAPHASIA_surface_tension_adhesion.pdf
+*/ 
 __kernel void pcisph_calcSurfaceTension(
 										__global float4 * sortedPosition,
 										__global float2 * neighborMap,
@@ -560,10 +582,10 @@ __kernel void pcisph_calcSurfaceTension(
 										__global float4 * acceleration,
 										__global float4 * position,
 										__global uint2 * particleIndex,
-										float mass_mult_AVAL
+										float mass_mult_AVAL, 
+										float mass
 										)
 {
-	//http://cg.informatik.uni-freiburg.de/publications/siggraphasia2013/2013_SIGGRAPHASIA_surface_tension_adhesion.pdf
 	int id = get_global_id( 0 );
 	if( id >= PARTICLE_COUNT ) return;	
 	id = particleIndexBack[id];			//track selected particle (indices are not shuffled anymore)
@@ -576,10 +598,10 @@ __kernel void pcisph_calcSurfaceTension(
 	float density;
 	float r_ij;
 	int nc = 0;//neighbor counter	
+	/* Forces all forces is has devided on mass yet so when you will be debug this code please don't forget about this */
 	float4 f_cohesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_curvature = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_tension = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
-	float4 f_adhesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float c_value = 0.f;
 	float a_value = 0.f;
 	int id_b_source_particle;
@@ -591,34 +613,39 @@ __kernel void pcisph_calcSurfaceTension(
 			c_value = 0.f;
 			delta = 0.f;
 			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
-			//calc f coheian
+			//calc coheian Forces see [6] formula 1. in 2.1
+			id_b_source_particle = PI_SERIAL_ID( particleIndex[jd] );
+			/* we calculting cohesion forces only between particle of liquid */
+			// [6] Formula 2
 			if(2.f * r_ij > hScaled){
-				c_value = (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij;
-				id_b_source_particle = PI_SERIAL_ID( particleIndex[jd] );
-				if((int)position[id_b_source_particle].w == BOUNDARY_PARTICLE){
-					a_value = pow((-4.0f*r_ij*r_ij/hScaled + 6.f*r_ij - 2.f*hScaled),0.25);	
-					delta = ro0/rho[jd];
-				}
+				if((int)position[id_b_source_particle].w != BOUNDARY_PARTICLE)
+					c_value = (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij;	
 			}
-			else if(r_ij > 0.f && 2.f*r_ij <= hScaled)
-				c_value = 2.f * (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij - hScaled6;
-			f_cohesion = c_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
-			//calc f curvature
-			f_curvature = (normales[id] - normales[jd]);
-			
-			f_cohesion *= c_coeff ;
-			
-			f_tension += (f_cohesion + f_tension) / (rho[id] + rho[jd]);
-			
-			f_adhesion += delta * a_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
+			else if(r_ij > 0.f && 2.f*r_ij <= hScaled){
+				if((int)position[id_b_source_particle].w != BOUNDARY_PARTICLE)
+					c_value = 2.f * (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij - hScaled6;
+			}
+			f_cohesion = c_coeff * c_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
+			//calc curvature Forces see [6] formula 3. in 2.2
+			f_curvature = normales[id] - normales[jd];		
+			f_cohesion.w = 0.f;
+			f_curvature.w = 0.f;
+			// Surface tension force calculating [6] formula 5. in 2.3
+			f_tension += (f_cohesion + f_curvature) / (rho[id] + rho[jd]);
 		}
 	}while(++nc < MAX_NEIGHBOR_COUNT);
-	
-	f_tension *= -(0.000005f) * 2.0f * ro0;
-	f_adhesion *= -(0.0005f);
-	//printf("f tenstion is:%f , %f , %f\n",f_curvature.x,f_curvature.y,f_curvature.z);
-	acceleration[ id ] += f_tension;
-	acceleration[ id ] += f_adhesion;
+
+#ifdef  DEBUGING
+	f_tension *= -0.0005f * 2.0f * ro0; // insted -0.0005f here should be variable gamma which identifies value of e surface tension coefficient
+                                        // but it more useful fix it here in opencl file I don't needed recompile code every time 
+    if(id_source_particle==0){
+		printf("f_tension is:%e , %e , %e\n",f_tension.x,f_tension.y,f_tension.z);
+	}
+#else
+	f_tension *= gamma * 2.0f * ro0;
+#endif
+	f_tension.w = 0.f;
+	acceleration[ id ] += f_tension; // f_tension has devided on mass yet
 }
 
 /** Run pcisph_computeForcesAndInitPressure kernel
@@ -664,7 +691,7 @@ __kernel void pcisph_computeForcesAndInitPressure(
 	int idx = id * MAX_NEIGHBOR_COUNT;
 	float hScaled2 = hScaled*hScaled;//29aug_A.Palyanov
 
-	float4 acceleration_i;// = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	float4 acceleration_i = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float2 nm;
 	float r_ij, r_ij2;
 	int nc = 0;//neighbor counter
@@ -711,7 +738,12 @@ __kernel void pcisph_computeForcesAndInitPressure(
 	accel_viscosityForce *= mu * mass_mult_divgradWviscosityCoefficient / rho[id];
 	// apply external forces
 	acceleration_i = accel_viscosityForce;
-	acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f );
+#ifdef DEBUGING
+	if(id_source_particle==0){
+		printf("accel_viscosityForce is:%e , %e , %e\n",acceleration_i.x,acceleration_i.y,acceleration_i.z);
+	}
+#endif
+	//acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f ); //Turn on/off gravitation just comment/uncomment this line
 	//acceleration_i +=  accel_surfTensForce; //29aug_A.Palyanov
 	acceleration[ id ] = acceleration_i;
 	// 1st half of 'acceleration' array is used to store acceleration corresponding to gravity, visc. force etc.

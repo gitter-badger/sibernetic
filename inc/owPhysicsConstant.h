@@ -110,7 +110,7 @@ const float hashGridCellSize = 2.0f * h;            // All bounding box is divid
 const float r0 = 0.5f * h;                          // Standard distance between two boundary particle == equilibrium distance between 2 particles [1]
                                                     // [1] M. Ihmsen, N. Akinci, M. Gissler, M. Teschner, Boundary Handling and Adaptive Time-stepping for PCISPH Proc. VRIPHYS, Copenhagen, Denmark, pp. 79-88, Nov 11-12, 2010.
 
-const float viscosity = 0.00005f;                   // liquid viscosity value //why this value? Dynamic viscosity of water at 25 C = 0.89e-3 Pa*s
+const float viscosity = 0.00089f;                   // liquid viscosity value //why this value? Dynamic viscosity of water at 25 C = 0.89e-3 Pa*s
 const double beta = timeStep*timeStep*mass*mass*2/(rho0*rho0); // B. Solenthaler's dissertation, formula 3.6 (end of page 30)
 
 const double Wpoly6Coefficient = 315.0 / ( 64.0 * M_PI * pow( (double)(h*simulationScale), 9.0 ) ); // Wpoly6Coefficient for kernel Wpoly6 [1]
@@ -155,7 +155,7 @@ const double c_coeff = 32.0 / (M_PI * pow ((double)(_hScaled),9.0));
 const float mass_mult_c_coeff = (float)((double) mass * c_coeff);
 const float _hScaled6 = _hScaled2 * _hScaled2 * _hScaled2 / 64.f;
 const float gammaConst = 0.1f;
-const double gradcubicSpline = 3.0/(4.0*M_PI* pow((double)(_hScaled),6.0));
+const double gradcubicSpline = 3.0/(4.0*M_PI* pow((double)(_hScaled),5.0)); //mult on hScaled here so power of h isn't 6 but 5
 const float mass_mult_gradcubicSpline = (float)((double)mass * gradcubicSpline);
 const double AVAL = 0.007/pow((double)_hScaled,3.25);
 const float mass_mult_AVAL = (float)((double)mass*AVAL);

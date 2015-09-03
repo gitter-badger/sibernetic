@@ -66,6 +66,7 @@ owPhysicsFluidSimulator::owPhysicsFluidSimulator(owHelper * helper,int argc, cha
 		//
 		position_cpp = new float[ 4 * config->getParticleCount() ];
 		velocity_cpp = new float[ 4 * config->getParticleCount() ];
+		acceleration_cpp = new float[ 4 * config->getParticleCount() * 3 * 4 ];
 		muscle_activation_signal_cpp = new float [config->MUSCLE_COUNT];
 		if(config->numOfElasticP != 0)
 			elasticConnectionsData_cpp = new float[ 4 * config->numOfElasticP * MAX_NEIGHBOR_COUNT ];
