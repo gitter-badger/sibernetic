@@ -66,7 +66,8 @@ owPhysicsFluidSimulator::owPhysicsFluidSimulator(owHelper * helper,int argc, cha
 		//
 		position_cpp = new float[ 4 * config->getParticleCount() ];
 		velocity_cpp = new float[ 4 * config->getParticleCount() ];
-		acceleration_cpp = new float[ 4 * config->getParticleCount() * 3 * 4 ];
+		acceleration_cpp = new float[ config->getParticleCount() * 3 * 4 ];
+		normales_cpp = new float[ 4 * config->getParticleCount()];
 		muscle_activation_signal_cpp = new float [config->MUSCLE_COUNT];
 		if(config->numOfElasticP != 0)
 			elasticConnectionsData_cpp = new float[ 4 * config->numOfElasticP * MAX_NEIGHBOR_COUNT ];
@@ -150,6 +151,46 @@ void owPhysicsFluidSimulator::reset(){
 	}else
 		ocl_solver->reset(position_cpp,velocity_cpp, config);	//Create new openCLsolver instance
 }
+
+void owPhysicsFluidSimulator::getDensityDistrib(){
+	float minDistVal = 0.0f;
+	float maxDistVal = 1100.0f;
+	float step = 50.0f;
+	const int size = (int)((maxDistVal - minDistVal)/step);
+	std::vector<int> distrib(2 * size,0);
+	int pib;
+	float rho;
+	this->getDensity_cpp();
+	this->getParticleIndex_cpp();
+	for(int i=0;i<config->getParticleCount();i++)
+	{
+		pib = particleIndex_cpp[2*i + 1];
+		particleIndex_cpp[2*pib + 0] = i;
+	}
+	for(int i=0;i < size;i++){
+		distrib[i*2 + 0] = minDistVal + i * step;
+		distrib[i*2 + 1] = 0;
+	}
+	for(int i=0;i<config->getParticleCount();i++){
+		if((int)position_cpp[4 * i + 3] == LIQUID_PARTICLE){
+			rho = density_cpp[ particleIndex_cpp[ i * 2 + 0 ] ];
+			if(rho >= minDistVal && rho <= maxDistVal){
+				int index = (int)((rho - minDistVal)/step);
+				distrib[2 * index + 1] += 1;
+			}else{
+				if(rho < minDistVal)
+					distrib[0 + 1] += 1;
+				else
+					distrib[size - 1] += 1;
+			}
+		}
+	}
+	std::stringstream ss;
+	ss << iterationCount;
+	std::string fileName = "./logs/density_distrib_" + ss.str()+".txt";
+	owHelper::log_buffer(&distrib[0], 2, size, fileName.c_str());
+}
+
 /** Run one simulation step
  *
  *  Run simulation step in pipeline manner.
@@ -236,8 +277,63 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 				}
 			}
 		}
+
+		/*TODO delete block below after fix*/
+		//Calculating values of volume and density for start and end configuration
+		/*if(iterationCount == 150 || iterationCount == 0){
+			float low;
+			float high;
+			float left, right;
+
+			for(int i=0;i<config->getParticleCount();i++){
+				if((int)position_cpp[4 * i + 3] == LIQUID_PARTICLE){
+					float y = position_cpp[4 * i + 1];
+					float x = position_cpp[4 * i + 0];
+					if(i == 0){
+						low = y;
+						high = y;
+						left = x;
+						right = x;
+					}
+					else{
+						if(y<low)
+							low = y;
+						if(y>high)
+							high = y;
+						if(x<left)
+							left = x;
+						if(x>right)
+							right = x;
+					}
+				}
+			}
+
+			if(high - low != 0.0f && left - right != 0.0f){
+				float dist_x = fabs(left - right);
+				float dist_y = fabs(high - low);
+				std::string filename = (iterationCount == 0)?"./logs/Output_Parametrs_0.txt":"./logs/Output_Parametrs.txt";
+				std::ofstream outFile (filename.c_str());
+				float volume, density;
+				getDensityDistrib();
+				if(iterationCount == 0){
+					volume = dist_x * dist_x * dist_y * pow(simulationScale,3.0f);
+					density = mass * config->numOfLiquidP / volume;
+				}else{
+					volume = pow(dist_x * simulationScale,3.0f)/6.f;
+					density = mass * config->numOfLiquidP / volume;
+				}
+				outFile << "Volume of water is:" << volume << "\n";
+				outFile << "Density of water is:" << density << "\n";
+				//outFile << "Initial Volume of cube is:" << start_volume << "\n";
+				//outFile << "Initial Density of cube is:" << start_density << "\n";
+				outFile << "Simulation Scale is:" << simulationScale << "\n";
+				outFile.close();
+				if(iterationCount == 150)
+					exit(0);
+			}
+		}*/
+
 		iterationCount++;
-		//for(int i=0;i<MUSCLE_COUNT;i++) { muscle_activation_signal_cpp[i] *= 0.9f; }
 
         config->updatePyramidalSimulation(muscle_activation_signal_cpp);
 		ocl_solver->updateMuscleActivityData(muscle_activation_signal_cpp, config);

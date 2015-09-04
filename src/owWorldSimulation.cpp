@@ -65,6 +65,7 @@ float * p_cpp;
 float * v_cpp;
 float * a_cpp;
 float * ec_cpp;
+float * n_cpp;
 float * muscle_activation_signal_cpp;
 int   * md_cpp;// pointer to membraneData_cpp
 owPhysicsFluidSimulator * fluid_simulation;
@@ -148,6 +149,7 @@ void display(void)
 			a_cpp = fluid_simulation->getAcceleration_cpp();
 			d_cpp = fluid_simulation->getDensity_cpp();
 			ec_cpp = fluid_simulation->getElasticConnectionsData_cpp();
+			n_cpp = fluid_simulation->getNormales_cpp();
 			if(fluid_simulation->getIteration() == localConfig->getNumberOfIteration()){
 				std::cout << "Simulation is reached time limit" << std::endl;
 				Cleanup();
@@ -161,16 +163,18 @@ void display(void)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	drawScene();
 	glPointSize(3.f);
-	glBegin(GL_POINTS);
+	//glBegin(GL_POINTS);
 	float dc, rho;
 	//Display all particles
-	if(fluid_simulation->getIteration() % 100 == 0)
-		owHelper::log_buffer(a_cpp,4,localConfig->getParticleCount(),"./logs/vel_log");
+	//if(fluid_simulation->getIteration() % 50 == 0)
+	//	owHelper::log_buffer(a_cpp,4,3*localConfig->getParticleCount(),"./logs/a_log");
 	float center[]= {0.0f,0.0f,0.0f};
 	float force[]= {0.0f,0.0f,0.0f};
+	int id;
 	for(i = 0; i<localConfig->getParticleCount(); i++)
 	{
 		if(!load_from_file){
+			id = localConfig->getParticleCount() * 2 + i/*p_indexb[ i * 2 + 0 ]*/;
 			rho = d_cpp[ p_indexb[ i * 2 + 0 ] ];
 			if( rho < 0 ) rho = 0;
 			if( rho > 2 * rho0) rho = 2 * rho0;
@@ -201,9 +205,9 @@ void display(void)
 			center[1] += (p_cpp[i*4 + 1]-localConfig->ymax/2)*sc;
 			center[2] += (p_cpp[i*4 + 2]-localConfig->zmax/2)*sc;
 
-			force[0] += (p_cpp[i*4+0] + a_cpp[i*4+0]-localConfig->xmax/2)*sc;
-			force[1] += (p_cpp[i*4+1] + a_cpp[i*4+1]-localConfig->ymax/2)*sc;
-			force[2] += (p_cpp[i*4+2] + a_cpp[i*4+2]-localConfig->zmax/2)*sc;
+			force[0] += (p_cpp[i*4+0] + a_cpp[id*4+0]-localConfig->xmax/2)*sc;
+			force[1] += (p_cpp[i*4+1] + a_cpp[id*4+1]-localConfig->ymax/2)*sc;
+			force[2] += (p_cpp[i*4+2] + a_cpp[id*4+2]-localConfig->zmax/2)*sc;
 
 			if(!((p_cpp[i*4  ]>=0)&&(p_cpp[i*4  ]<=localConfig->xmax)&&
 				(p_cpp[i*4+1]>=0)&&(p_cpp[i*4+1]<=localConfig->ymax)&&
@@ -223,7 +227,7 @@ void display(void)
 			glBegin(GL_LINES);
 			glVertex3f( (p_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
 			glColor4b(100, 100, 100, 100);
-			glVertex3f( ( p_cpp[i*4+0] + v_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1] + v_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2] + v_cpp[i*4+2]-localConfig->zmax/2)*sc );
+			glVertex3f( ( p_cpp[i*4+0] + a_cpp[id*4+0]*0.001f -localConfig->xmax/2)*sc , (p_cpp[i*4+1] + a_cpp[id*4+1]*0.001f-localConfig->ymax/2)*sc, (p_cpp[i*4+2] + a_cpp[id*4+2]*0.001f-localConfig->zmax/2)*sc );
 			glEnd();
 		}else if((int)p_cpp[i*4 + 3] == BOUNDARY_PARTICLE){
 			/*glBegin(GL_LINES);
@@ -245,7 +249,7 @@ void display(void)
 	glBegin(GL_LINES);
 	glVertex3f( center[0] , center[1], center[2] );
 	glColor4b(255/2, 255/2, 255/2, 255/2);
-	glVertex3f( force[0]*2 , force[1]*2, force[2]*2 );
+	glVertex3f( force[0] , force[1], force[2] );
 	glEnd();
 
 	glLineWidth((GLfloat)0.1);

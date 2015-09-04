@@ -545,8 +545,7 @@ __kernel void pcisph_computeNormales(
 	float r_ij;
 	int nc = 0;//neighbor counter	
 	do{
-		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID )
-		{
+		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID ){
 			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
 			density = rho[ jd ];
 			// For calculating we're using cubic spline form [7] formula 2.6 
@@ -607,8 +606,7 @@ __kernel void pcisph_calcSurfaceTension(
 	int id_b_source_particle;
 	float delta=0.f;
 	do{
-		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID )
-		{
+		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID ){
 			a_value = 0.f;
 			c_value = 0.f;
 			delta = 0.f;
@@ -630,13 +628,17 @@ __kernel void pcisph_calcSurfaceTension(
 			f_curvature = normales[id] - normales[jd];		
 			f_cohesion.w = 0.f;
 			f_curvature.w = 0.f;
+			/*if(id_source_particle==0){
+				printf("f_curvature is:%e , %e , %e\n",f_curvature.x,f_curvature.y,f_curvature.z);
+				printf("f_cohesion is:%e , %e , %e\n",f_cohesion.x,f_cohesion.y,f_cohesion.z);
+			}*/
 			// Surface tension force calculating [6] formula 5. in 2.3
 			f_tension += (f_cohesion + f_curvature) / (rho[id] + rho[jd]);
 		}
 	}while(++nc < MAX_NEIGHBOR_COUNT);
 
 #ifdef  DEBUGING
-	f_tension *= -0.0005f * 2.0f * ro0; // insted -0.0005f here should be variable gamma which identifies value of e surface tension coefficient
+	f_tension *= -0.000005f * 2.0f * ro0; // insted -0.0005f here should be variable gamma which identifies value of e surface tension coefficient
                                         // but it more useful fix it here in opencl file I don't needed recompile code every time 
     if(id_source_particle==0){
 		printf("f_tension is:%e , %e , %e\n",f_tension.x,f_tension.y,f_tension.z);
@@ -735,15 +737,19 @@ __kernel void pcisph_computeForcesAndInitPressure(
 	}while(  ++nc < MAX_NEIGHBOR_COUNT );
 	//accel_surfTensForce.w = 0.f;
 	//accel_surfTensForce /= mass;
-	accel_viscosityForce *= mu * mass_mult_divgradWviscosityCoefficient / rho[id];
 	// apply external forces
-	acceleration_i = accel_viscosityForce;
 #ifdef DEBUGING
 	if(id_source_particle==0){
 		printf("accel_viscosityForce is:%e , %e , %e\n",acceleration_i.x,acceleration_i.y,acceleration_i.z);
 	}
+	accel_viscosityForce *= 0.000089f * mass_mult_divgradWviscosityCoefficient / rho[id];
+	acceleration_i = accel_viscosityForce;
+	acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f ); //Turn on/off gravitation just comment/uncomment this line
+#else
+	accel_viscosityForce *= mu * mass_mult_divgradWviscosityCoefficient / rho[id];
+	acceleration_i = accel_viscosityForce;
+	acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f ); //Turn on/off gravitation just comment/uncomment this line
 #endif
-	//acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f ); //Turn on/off gravitation just comment/uncomment this line
 	//acceleration_i +=  accel_surfTensForce; //29aug_A.Palyanov
 	acceleration[ id ] = acceleration_i;
 	// 1st half of 'acceleration' array is used to store acceleration corresponding to gravity, visc. force etc.
@@ -983,7 +989,7 @@ __kernel void pcisph_predictDensity(
 			{
 				//printf("\a\n");
 #ifdef PRINTF_ON
-				printf("@@@|>>[%d]-[%d]<<|@@@ %E @@@@ (%f) (%f) ####",id,jd,((double)r_ij2),sortedPosition[PARTICLE_COUNT+id].w,sortedPosition[PARTICLE_COUNT+jd].w );
+				printf("@@@|>>[%d]-[%d]<<|@@@ %E @@@@ (%f) (%f)  ####\n",id,jd,((double)r_ij2),sortedPosition[PARTICLE_COUNT+id].w,sortedPosition[PARTICLE_COUNT+jd].w );
 #endif
 			}
 		}
@@ -1500,7 +1506,7 @@ __kernel void pcisph_integrate(
 		position[ id_source_particle ].w = particleType;
 		//velocity[ id_source_particle ] = (float4)((float)velocity_t_dt_x, (float)velocity_t_dt_y, (float)velocity_t_dt_z, 0.f);
 		//position[ id_source_particle ] = (float4)((float)position_t_dt_x, (float)position_t_dt_y, (float)position_t_dt_z, particleType);
-
+		acceleration_t_dt.w = particleType;
 		acceleration[PARTICLE_COUNT*2+id_source_particle] = acceleration_t_dt;
 		return;
 	}

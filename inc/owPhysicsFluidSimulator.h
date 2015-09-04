@@ -74,6 +74,15 @@ public:
 	 *  @return acceleration_cpp
 	 */
 	float * getAcceleration_cpp() { ocl_solver->read_acceleration_buffer(acceleration_cpp,config); return acceleration_cpp; }
+	/** Getter for acceleration_cpp buffer
+	 *
+	 *  When run this method information about new value of velocity
+	 *  getting from OpenCL memory
+	 *  it use owOpenCLSolver::read_acceleration_buffer(...) method
+	 *
+	 *  @return acceleration_cpp
+	 */
+	float * getNormales_cpp() { ocl_solver->read_normales_buffer(normales_cpp,config); return normales_cpp; }
 	/** Getter for density_cpp buffer
 	 *
 	 *  When run this method information about new values of density
@@ -127,6 +136,7 @@ public:
 	const int getIteration() const { return iterationCount; };
 	void reset();
 	void makeSnapshot();
+	void getDensityDistrib();
 private:
 	owOpenCLSolver * ocl_solver;
 	float * position_cpp;				// everywhere in the code %variableName%_cpp means that we create
@@ -135,6 +145,7 @@ private:
 	int	  * membraneData_cpp;
 	int   * particleMembranesList_cpp;
 	float * acceleration_cpp;
+	float * normales_cpp;
 	//Muscle contraction data buffer
 	float * muscle_activation_signal_cpp;
 	//Helper arrays for displaying information about density changes
