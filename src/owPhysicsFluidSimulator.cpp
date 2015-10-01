@@ -38,7 +38,7 @@
 #include "PyramidalSimulation.h"
 #include "owPhysicsFluidSimulator.h"
 
-int iter_step = 10;				 // Count of iteration which will be skipped before logging configuration to file
+int iter_step = 100;				 // Count of iteration which will be skipped before logging configuration to file
 								 // NOTE: this using only in "load config to file" mode
 
 /** Constructor method for owPhysicsFluidSimulator.
@@ -234,8 +234,8 @@ double owPhysicsFluidSimulator::simulationStep(const bool load_to)
 		}
 		ocl_solver->_run_pcisph_computeDensity(config);
 		ocl_solver->_run_pcisph_computeForcesAndInitPressure(config);
-		ocl_solver->_run_pcisph_computeNormales(config);
-		ocl_solver->_run_pcisph_calcSurfaceTension(config);
+		//ocl_solver->_run_pcisph_computeNormales(config);
+		//ocl_solver->_run_pcisph_calcSurfaceTension(config);
 		ocl_solver->_run_pcisph_computeElasticForces(config);
 		do{
 			//printf("\n^^^^ iter %d ^^^^\n",iter);

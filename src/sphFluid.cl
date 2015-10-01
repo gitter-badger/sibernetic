@@ -548,7 +548,7 @@ __kernel void pcisph_computeNormales(
 		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID ){
 			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
 			density = rho[ jd ];
-			// For calculating we're using cubic spline form [7] formula 2.6 
+			// For calculating we're using cubic spline form [7] formula 2.6 we need ger gradient from this don't forget about this
 			if(r_ij < hScaled)
 				result += (3.f * r_ij - 4.f*hScaled) * ( sortedPosition[id] - sortedPosition[jd] );
 			else//Actually it's imposible TODO remove this statement
@@ -557,7 +557,7 @@ __kernel void pcisph_computeNormales(
 			result /= density;
 		}
 	}while(++nc < MAX_NEIGHBOR_COUNT);
-	result *= mass_mult_gradcubicSpline; // we have divided on hScale and on mass yet
+	result *= mass_mult_gradcubicSpline; // we have multed on hScale and divided on mass yet
 	result.w = 0.f;
 	normales[id] = result;
 }
@@ -601,6 +601,8 @@ __kernel void pcisph_calcSurfaceTension(
 	float4 f_cohesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_curvature = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_tension = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	float4 f_adhesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
+	
 	float c_value = 0.f;
 	float a_value = 0.f;
 	int id_b_source_particle;
@@ -618,11 +620,16 @@ __kernel void pcisph_calcSurfaceTension(
 			if(2.f * r_ij > hScaled){
 				if((int)position[id_b_source_particle].w != BOUNDARY_PARTICLE)
 					c_value = (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij;	
+				else{
+					//a_value = pow((-4.0f*r_ij*r_ij/hScaled + 6.f*r_ij - 2.f*hScaled),0.25);
+					//delta = ro0 * mass /rho[jd];
+				}
 			}
 			else if(r_ij > 0.f && 2.f*r_ij <= hScaled){
 				if((int)position[id_b_source_particle].w != BOUNDARY_PARTICLE)
 					c_value = 2.f * (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij - hScaled6;
 			}
+			
 			f_cohesion = c_coeff * c_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
 			//calc curvature Forces see [6] formula 3. in 2.2
 			f_curvature = normales[id] - normales[jd];		
@@ -634,20 +641,29 @@ __kernel void pcisph_calcSurfaceTension(
 			}*/
 			// Surface tension force calculating [6] formula 5. in 2.3
 			f_tension += (f_cohesion + f_curvature) / (rho[id] + rho[jd]);
+			
+			//f_adhesion += delta * a_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
 		}
 	}while(++nc < MAX_NEIGHBOR_COUNT);
 
 #ifdef  DEBUGING
 	f_tension *= -0.000005f * 2.0f * ro0; // insted -0.0005f here should be variable gamma which identifies value of e surface tension coefficient
                                         // but it more useful fix it here in opencl file I don't needed recompile code every time 
+    f_adhesion *= -0.0005f;
     if(id_source_particle==0){
-		printf("f_tension is:%e , %e , %e\n",f_tension.x,f_tension.y,f_tension.z);
+		//printf("f_tension is:%e , %e , %e\n",f_tension.x,f_tension.y,f_tension.z);
+		
+	}
+	if(f_adhesion.x != 0.f || f_adhesion.y !=0.f || f_adhesion.z != 0.0f){
+		//printf("f_adhesion is for particle: %e , %e , %e, %d\n",f_adhesion.x,f_adhesion.y,f_adhesion.z, id_source_particle);
 	}
 #else
 	f_tension *= gamma * 2.0f * ro0;
 #endif
 	f_tension.w = 0.f;
 	acceleration[ id ] += f_tension; // f_tension has devided on mass yet
+	
+	//acceleration[ id ] += f_adhesion;
 }
 
 /** Run pcisph_computeForcesAndInitPressure kernel
@@ -740,7 +756,7 @@ __kernel void pcisph_computeForcesAndInitPressure(
 	// apply external forces
 #ifdef DEBUGING
 	if(id_source_particle==0){
-		printf("accel_viscosityForce is:%e , %e , %e\n",acceleration_i.x,acceleration_i.y,acceleration_i.z);
+		//printf("accel_viscosityForce is:%e , %e , %e\n",acceleration_i.x,acceleration_i.y,acceleration_i.z);
 	}
 	accel_viscosityForce *= 0.000089f * mass_mult_divgradWviscosityCoefficient / rho[id];
 	acceleration_i = accel_viscosityForce;
@@ -989,7 +1005,7 @@ __kernel void pcisph_predictDensity(
 			{
 				//printf("\a\n");
 #ifdef PRINTF_ON
-				printf("@@@|>>[%d]-[%d]<<|@@@ %E @@@@ (%f) (%f)  ####\n",id,jd,((double)r_ij2),sortedPosition[PARTICLE_COUNT+id].w,sortedPosition[PARTICLE_COUNT+jd].w );
+				//printf("@@@|>>[%d]-[%d]<<|@@@ %E @@@@ (%f) (%f)  ####\n",id,jd,((double)r_ij2),sortedPosition[PARTICLE_COUNT+id].w,sortedPosition[PARTICLE_COUNT+jd].w );
 #endif
 			}
 		}

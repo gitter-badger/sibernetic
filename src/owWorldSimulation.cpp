@@ -200,7 +200,7 @@ void display(void)
 			}
 			glVertex3f( (p_cpp[i*4]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
 			glPointSize(3.f);
-			glEnd();
+			glEnd();/*
 			center[0] += (p_cpp[i*4]-localConfig->xmax/2)*sc;
 			center[1] += (p_cpp[i*4 + 1]-localConfig->ymax/2)*sc;
 			center[2] += (p_cpp[i*4 + 2]-localConfig->zmax/2)*sc;
@@ -208,7 +208,7 @@ void display(void)
 			force[0] += (p_cpp[i*4+0] + a_cpp[id*4+0]-localConfig->xmax/2)*sc;
 			force[1] += (p_cpp[i*4+1] + a_cpp[id*4+1]-localConfig->ymax/2)*sc;
 			force[2] += (p_cpp[i*4+2] + a_cpp[id*4+2]-localConfig->zmax/2)*sc;
-
+*/
 			if(!((p_cpp[i*4  ]>=0)&&(p_cpp[i*4  ]<=localConfig->xmax)&&
 				(p_cpp[i*4+1]>=0)&&(p_cpp[i*4+1]<=localConfig->ymax)&&
 				(p_cpp[i*4+2]>=0)&&(p_cpp[i*4+2]<=localConfig->zmax) ))
@@ -224,11 +224,11 @@ void display(void)
 				err_coord_cnt++;
 				endWinCoords();
 			}
-			glBegin(GL_LINES);
+			/*glBegin(GL_LINES);
 			glVertex3f( (p_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
 			glColor4b(100, 100, 100, 100);
 			glVertex3f( ( p_cpp[i*4+0] + a_cpp[id*4+0]*0.001f -localConfig->xmax/2)*sc , (p_cpp[i*4+1] + a_cpp[id*4+1]*0.001f-localConfig->ymax/2)*sc, (p_cpp[i*4+2] + a_cpp[id*4+2]*0.001f-localConfig->zmax/2)*sc );
-			glEnd();
+			glEnd();*/
 		}else if((int)p_cpp[i*4 + 3] == BOUNDARY_PARTICLE){
 			/*glBegin(GL_LINES);
 			glVertex3f( (p_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
@@ -237,7 +237,7 @@ void display(void)
 			glEnd();*/
 		}
 	}
-	glLineWidth((GLfloat)1.0);
+	/*glLineWidth((GLfloat)1.0);
 	center[0] /= localConfig->numOfLiquidP;
 	center[1] /= localConfig->numOfLiquidP;
 	center[2] /= localConfig->numOfLiquidP;
@@ -251,7 +251,7 @@ void display(void)
 	glColor4b(255/2, 255/2, 255/2, 255/2);
 	glVertex3f( force[0] , force[1], force[2] );
 	glEnd();
-
+*/
 	glLineWidth((GLfloat)0.1);
 
 
@@ -328,7 +328,7 @@ void display(void)
 				}
 				else
 				{//ordinary springs
-					glLineWidth((GLfloat)0.1);
+					glLineWidth((GLfloat)1.1);
 					glBegin(GL_LINES);
 											glColor4b(150/2, 125/2, 0, 100/2);
 					if(p_cpp[i*4+3]>2.15)	glColor4b( 50/2, 125/2, 0, 100/2);
