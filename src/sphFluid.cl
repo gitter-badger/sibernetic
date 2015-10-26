@@ -515,9 +515,9 @@ __kernel void pcisph_computeDensity(
 }
 /** Calculation of normales for all particles ( only moving particles not boundary it already has normales)
  *  see here [6] - http://cg.informatik.uni-freiburg.de/publications/siggraphasia2013/2013_SIGGRAPHASIA_surface_tension_adhesion.pdf
- *  2.2 
+ *  2.2
  *  ans here [7] - http://cg.informatik.uni-freiburg.de/intern/seminar/particleFluids_Monaghan%20-%20SPH%20-%202005.pdf
- */ 
+ */
 __kernel void pcisph_computeNormales(
 							 __global float2 * neighborMap,
 							 int PARTICLE_COUNT,
@@ -532,7 +532,7 @@ __kernel void pcisph_computeNormales(
 							 )
 {
 	int id = get_global_id( 0 );
-	if( id >= PARTICLE_COUNT ) return;	
+	if( id >= PARTICLE_COUNT ) return;
 	id = particleIndexBack[id];			//track selected particle (indices are not shuffled anymore)
 	int id_source_particle = PI_SERIAL_ID( particleIndex[id] );
 	if((int)(position[ id_source_particle ].w) == BOUNDARY_PARTICLE){
@@ -543,7 +543,7 @@ __kernel void pcisph_computeNormales(
 	float4 result = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float density;
 	float r_ij;
-	int nc = 0;//neighbor counter	
+	int nc = 0;//neighbor counter
 	do{
 		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID ){
 			r_ij = NEIGHBOR_MAP_DISTANCE( neighborMap[ idx + nc] );
@@ -562,10 +562,10 @@ __kernel void pcisph_computeNormales(
 	normales[id] = result;
 }
 
-#define DEBUGING // TODO After fixing delete this 
+#define DEBUGING // TODO After fixing delete this
 /** Calculating surface tension force
  * method was described here [6] - http://cg.informatik.uni-freiburg.de/publications/siggraphasia2013/2013_SIGGRAPHASIA_surface_tension_adhesion.pdf
-*/ 
+*/
 __kernel void pcisph_calcSurfaceTension(
 										__global float4 * sortedPosition,
 										__global float2 * neighborMap,
@@ -581,12 +581,12 @@ __kernel void pcisph_calcSurfaceTension(
 										__global float4 * acceleration,
 										__global float4 * position,
 										__global uint2 * particleIndex,
-										float mass_mult_AVAL, 
+										float mass_mult_AVAL,
 										float mass
 										)
 {
 	int id = get_global_id( 0 );
-	if( id >= PARTICLE_COUNT ) return;	
+	if( id >= PARTICLE_COUNT ) return;
 	id = particleIndexBack[id];			//track selected particle (indices are not shuffled anymore)
 	int id_source_particle = PI_SERIAL_ID( particleIndex[id] );
 	if((int)(position[ id_source_particle ].w) == BOUNDARY_PARTICLE){
@@ -596,13 +596,13 @@ __kernel void pcisph_calcSurfaceTension(
 	int jd;
 	float density;
 	float r_ij;
-	int nc = 0;//neighbor counter	
+	int nc = 0;//neighbor counter
 	/* Forces all forces is has devided on mass yet so when you will be debug this code please don't forget about this */
 	float4 f_cohesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_curvature = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_tension = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float4 f_adhesion = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
-	
+
 	float c_value = 0.f;
 	float a_value = 0.f;
 	int id_b_source_particle;
@@ -619,7 +619,7 @@ __kernel void pcisph_calcSurfaceTension(
 			// [6] Formula 2
 			if(2.f * r_ij > hScaled){
 				if((int)position[id_b_source_particle].w != BOUNDARY_PARTICLE)
-					c_value = (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij;	
+					c_value = (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij;
 				else{
 					//a_value = pow((-4.0f*r_ij*r_ij/hScaled + 6.f*r_ij - 2.f*hScaled),0.25);
 					//delta = ro0 * mass /rho[jd];
@@ -629,10 +629,10 @@ __kernel void pcisph_calcSurfaceTension(
 				if((int)position[id_b_source_particle].w != BOUNDARY_PARTICLE)
 					c_value = 2.f * (hScaled - r_ij)*(hScaled - r_ij)*(hScaled - r_ij) * r_ij * r_ij * r_ij - hScaled6;
 			}
-			
+
 			f_cohesion = c_coeff * c_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
 			//calc curvature Forces see [6] formula 3. in 2.2
-			f_curvature = normales[id] - normales[jd];		
+			f_curvature = normales[id] - normales[jd];
 			f_cohesion.w = 0.f;
 			f_curvature.w = 0.f;
 			/*if(id_source_particle==0){
@@ -641,18 +641,17 @@ __kernel void pcisph_calcSurfaceTension(
 			}*/
 			// Surface tension force calculating [6] formula 5. in 2.3
 			f_tension += (f_cohesion + f_curvature) / (rho[id] + rho[jd]);
-			
+
 			//f_adhesion += delta * a_value * ( sortedPosition[id] - sortedPosition[jd] ) / r_ij;
 		}
 	}while(++nc < MAX_NEIGHBOR_COUNT);
 
 #ifdef  DEBUGING
-	f_tension *= -0.000005f * 2.0f * ro0; // insted -0.0005f here should be variable gamma which identifies value of e surface tension coefficient
-                                        // but it more useful fix it here in opencl file I don't needed recompile code every time 
-    f_adhesion *= -0.0005f;
-    if(id_source_particle==0){
+	f_tension *= -0.000003f * 2.0f * ro0; // insted -0.0005f here should be variable gamma which identifies value of e surface tension coefficient
+                                      // but it more useful fix it here in opencl file I don't needed recompile code every time
+  //f_adhesion *= -0.0005f;
+  if(id_source_particle==0){
 		//printf("f_tension is:%e , %e , %e\n",f_tension.x,f_tension.y,f_tension.z);
-		
 	}
 	if(f_adhesion.x != 0.f || f_adhesion.y !=0.f || f_adhesion.z != 0.0f){
 		//printf("f_adhesion is for particle: %e , %e , %e, %d\n",f_adhesion.x,f_adhesion.y,f_adhesion.z, id_source_particle);
@@ -662,7 +661,7 @@ __kernel void pcisph_calcSurfaceTension(
 #endif
 	f_tension.w = 0.f;
 	acceleration[ id ] += f_tension; // f_tension has devided on mass yet
-	
+
 	//acceleration[ id ] += f_adhesion;
 }
 
@@ -734,7 +733,32 @@ __kernel void pcisph_computeForcesAndInitPressure(
 				vj = sortedVelocity[jd];
     			jd_source_particle = PI_SERIAL_ID( particleIndex[jd] );
 				not_bp = (float)((int)(position[ jd_source_particle ].w) != BOUNDARY_PARTICLE);
-				accel_viscosityForce += (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/rho[jd];   // Caculating viscosity forces impact to acceleration
+				/*Start Block*/
+				if( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) &&
+						((position[jd_source_particle].w > 1.25f)&&(position[jd_source_particle].w < 1.35f)) )
+				{
+					// viscosity between outer liquid (high) - trying to simulate agar
+					accel_viscosityForce += 3.8e-04 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/rho[jd];   // Caculating viscosity forces impact to acceleration
+				}
+				else
+				if( ( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.35f)) &&
+						((position[jd_source_particle].w > 1.25f)&&(position[jd_source_particle].w < 1.35f)) ) ||
+					( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) &&
+						((position[jd_source_particle].w > 2.05f)&&(position[jd_source_particle].w < 2.35f)) ) )
+				{
+					// viscosity between outer liquid and worm shell - very low
+					accel_viscosityForce += 0 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/rho[jd];   // Caculating viscosity forces impact to acceleration
+				}
+				if( ( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.35f)) &&
+					((position[jd_source_particle].w == BOUNDARY_PARTICLE)) ) ||
+					( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) &&
+						((position[jd_source_particle].w == BOUNDARY_PARTICLE)) ) )
+				{
+					// viscosity between floor and worm shell - very low
+					accel_viscosityForce += 0 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/rho[jd];   // Caculating viscosity forces impact to acceleration
+				}
+				else/*End block*/
+					accel_viscosityForce += mu * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/rho[jd];   // Caculating viscosity forces impact to acceleration
 																												 // formula 2.19 [1]
 				//29aug_A.Palyanov_start_block
 				// M.Beckner & M.Teschner / Weakly compressible SPH for free surface flows. 2007.
@@ -758,7 +782,8 @@ __kernel void pcisph_computeForcesAndInitPressure(
 	if(id_source_particle==0){
 		//printf("accel_viscosityForce is:%e , %e , %e\n",acceleration_i.x,acceleration_i.y,acceleration_i.z);
 	}
-	accel_viscosityForce *= 0.000089f * mass_mult_divgradWviscosityCoefficient / rho[id];
+	//accel_viscosityForce *= 0.00044f * mass_mult_divgradWviscosityCoefficient / rho[id];
+	accel_viscosityForce *= mass_mult_divgradWviscosityCoefficient / rho[id];
 	acceleration_i = accel_viscosityForce;
 	acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f ); //Turn on/off gravitation just comment/uncomment this line
 #else
@@ -826,7 +851,7 @@ __kernel void pcisph_computeElasticForces(
 			delta_r_ij = r_ij - r_ij_equilibrium;//scale ok
 			if(r_ij!=0.f)
 			{
-				acceleration[ id ] += -(vect_r_ij/r_ij) * delta_r_ij * elasticityCoefficient;
+				acceleration[ id ] += -(vect_r_ij/r_ij) * delta_r_ij  * elasticityCoefficient;
 				for(i=0;i<MUSCLE_COUNT;i++)//check all muscles
 				{
 					if((int)(elasticConnectionsData[idx+nc].z)==(i+1))//contractible spring, = muscle

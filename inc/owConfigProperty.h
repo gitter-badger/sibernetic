@@ -76,7 +76,7 @@ public:
 			}
 		}
 	}
-	bool isWormConfig(){ return (configFileName == "worm" || configFileName == "worm_no_water")? true:false; }
+	bool isWormConfig(){ return (configFileName == "worm" || configFileName == "worm_no_water" || configFileName == "worm_test")? true:false; }
 	void setCofigFileName( const char * name ) { configFileName = name; }
 	void resetNeuronSimulation(){
 		if(isWormConfig())

@@ -110,7 +110,7 @@ const float hashGridCellSize = 2.0f * h;            // All bounding box is divid
 const float r0 = 0.5f * h;                          // Standard distance between two boundary particle == equilibrium distance between 2 particles [1]
                                                     // [1] M. Ihmsen, N. Akinci, M. Gissler, M. Teschner, Boundary Handling and Adaptive Time-stepping for PCISPH Proc. VRIPHYS, Copenhagen, Denmark, pp. 79-88, Nov 11-12, 2010.
 
-const float viscosity = 0.00089f;                   // liquid viscosity value //why this value? Dynamic viscosity of water at 25 C = 0.89e-3 Pa*s
+const float viscosity = 0.00002f;//0.00089f;                   // liquid viscosity value //why this value? Dynamic viscosity of water at 25 C = 0.89e-3 Pa*s
 const double beta = timeStep*timeStep*mass*mass*2/(rho0*rho0); // B. Solenthaler's dissertation, formula 3.6 (end of page 30)
 
 const double Wpoly6Coefficient = 315.0 / ( 64.0 * M_PI * pow( (double)(h*simulationScale), 9.0 ) ); // Wpoly6Coefficient for kernel Wpoly6 [1]
