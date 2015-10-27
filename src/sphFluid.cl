@@ -647,7 +647,7 @@ __kernel void pcisph_calcSurfaceTension(
 	}while(++nc < MAX_NEIGHBOR_COUNT);
 
 #ifdef  DEBUGING
-	f_tension *= -0.000003f * 2.0f * ro0; // insted -0.0005f here should be variable gamma which identifies value of e surface tension coefficient
+	f_tension *= -0.0000003f * 2.0f * ro0; // insted -0.0005f here should be variable gamma which identifies value of e surface tension coefficient
                                       // but it more useful fix it here in opencl file I don't needed recompile code every time
   //f_adhesion *= -0.0005f;
   if(id_source_particle==0){
