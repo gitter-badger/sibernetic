@@ -596,10 +596,12 @@ __kernel void pcisph_computeForcesAndInitPressure(
 	}while(  ++nc < MAX_NEIGHBOR_COUNT );
 	accel_surfTensForce.w = 0.f;
 	accel_surfTensForce /= mass;
-	accel_viscosityForce *= mu * mass_mult_divgradWviscosityCoefficient / rho[id];
+	accel_viscosityForce *= /*mu*/0.001f * mass_mult_divgradWviscosityCoefficient / rho[id];
 	// apply external forces
 	acceleration_i = accel_viscosityForce;
+#ifdef NOT_DEBUG
 	acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f );
+#endif
 	acceleration_i +=  accel_surfTensForce; //29aug_A.Palyanov
 	acceleration[ id ] = acceleration_i;
 	// 1st half of 'acceleration' array is used to store acceleration corresponding to gravity, visc. force etc.
