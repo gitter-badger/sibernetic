@@ -81,7 +81,7 @@ void test_energy_conservation(int argc, char **argv){
 		energy_evolution_kinetic.push_back(kinetic_energy);
 		energy_evolution_potential.push_back(potential_energy);
 		fluid_simulation->simulationStep();
-		if(counter == 100)
+		if(counter == 30)
 			break;
 		counter++;
 	}
@@ -90,8 +90,6 @@ void test_energy_conservation(int argc, char **argv){
 	owHelper::log_buffer(&energy_evolution_potential[0], 1, energy_evolution_potential.size(), "./logs/potential_energy_distrib.txt");
 	std::cout << "===================" << "CONSERVATION ENERGY TEST END  " << "========================" << std::endl;
 	delete fluid_simulation;
-	delete p_buffer;
-	delete v_buffer;
 }
 float calcPotentialEnergy(owConfigProrerty * config, float * p_buffer){
 	float e = 0.f;

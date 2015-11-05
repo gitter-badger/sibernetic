@@ -1352,6 +1352,10 @@ __kernel void pcisph_integrate(
 		float particleType = position[ id_source_particle ].w;
 		computeInteractionWithBoundaryParticles(id,r0,neighborMap,particleIndexBack,particleIndex,position,velocity,&position_t_dt, true, &velocity_t_dt,PARTICLE_COUNT);
 
+		if(DOT(velocity_t_dt, velocity_t_dt) >= 0.1f){
+			velocity_t_dt = (float4)(0.0f, 0.0f, 0.0f, 0.0f );//velocity_t_dt / sqrt(DOT(velocity_t_dt, velocity_t_dt));
+			//printf("HERE");
+		}
 
 		velocity[ id_source_particle ] = velocity_t_dt;
 		position[ id_source_particle ] = position_t_dt;
