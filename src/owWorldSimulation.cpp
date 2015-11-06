@@ -149,6 +149,7 @@ void display(void)
 				Cleanup();
 				exit (EXIT_SUCCESS);
 			}
+			sPause = true;
 
 		}
 		helper->refreshTime();
