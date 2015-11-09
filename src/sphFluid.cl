@@ -575,7 +575,7 @@ __kernel void pcisph_computeForcesAndInitPressure(
 				rho_j = rho[jd];
 				vi = sortedVelocity[id];
 				vj = sortedVelocity[jd];
-    			jd_source_particle = PI_SERIAL_ID( particleIndex[jd] );
+    		jd_source_particle = PI_SERIAL_ID( particleIndex[jd] );
 				not_bp = (float)((int)(position[ jd_source_particle ].w) != BOUNDARY_PARTICLE);
 				accel_viscosityForce += (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/rho[jd];   // Caculating viscosity forces impact to acceleration
 																												 // formula 2.19 [1]
@@ -589,14 +589,19 @@ __kernel void pcisph_computeForcesAndInitPressure(
 				// surface tension force
 				//accel_surfTensForce += surfTensCoeff * (sortedPosition[id]-sortedPosition[jd]); // Caculating surface tension forces impact to acceleration
 																								// formula (16) [5]
-				float surffKern = (hScaled2 -r_ij2) * (hScaled2 -r_ij2) * (hScaled2 -r_ij2);
-				accel_surfTensForce += -1.7e-09f /*-1.9e-09f*/ * surfTensCoeff * surffKern * (sortedPosition[id]-sortedPosition[jd]);
+				float surfKern = (hScaled2 -r_ij2) * (hScaled2 -r_ij2) * (hScaled2 -r_ij2);
+				accel_surfTensForce += surfKern * (sortedPosition[id]-sortedPosition[jd]);
 			}
 		}
 	}while(  ++nc < MAX_NEIGHBOR_COUNT );
 	accel_surfTensForce.w = 0.f;
+	accel_surfTensForce *= -1.7e-09f /*-1.9e-09f*/ * surfTensCoeff;
+//	printf("FOR PARTICLE SURFACE TENSION COEFFICIENT %d %e\n", id_source_particle, surfTensCoeff);
 	accel_surfTensForce /= mass;
-	accel_viscosityForce *= /*mu*/0.001f * mass_mult_divgradWviscosityCoefficient / rho[id];
+	accel_viscosityForce *= /*mu*/0.0001f * mass_mult_divgradWviscosityCoefficient / rho[id];
+	printf("FOR PARTICLE %d %e\n", id_source_particle, 0.0001f * mass_mult_divgradWviscosityCoefficient/ rho[id]);
+	printf("FOR PARTICLE accel_viscosityForce %d %e\n", id_source_particle,sqrt(DOT(accel_viscosityForce,accel_viscosityForce)));
+	//printf("FOR PARTICLE density %d %f\n", id,rho[id]);
 	// apply external forces
 	acceleration_i = accel_viscosityForce;
 #ifdef NOT_DEBUG

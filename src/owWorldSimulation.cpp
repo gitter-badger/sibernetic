@@ -322,10 +322,10 @@ void display(void)
 	}
 	glLineWidth((GLfloat)1.0);
 	glutSwapBuffers();
-	helper->watch_report("graphics: \t\t%9.3f ms\n====================================\n");
+	//helper->watch_report("graphics: \t\t%9.3f ms\n====================================\n");
 	renderTime = helper->getElapsedTime();
 	totalTime += calculationTime + renderTime;
-	calculateFPS();
+	//calculateFPS();
 }
 /** Drawing main scene and bounding box
  */
