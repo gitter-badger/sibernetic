@@ -1,12 +1,14 @@
 import math
 import numpy as np
 
+"""
 import matplotlib.pyplot as plt
 from pylab import *
+"""
 
 muscle_row_count = 24
 
-time_per_step = 0.000005  #  s
+time_per_step = 0.000001  #  s
 
 quadrant0 = 'MDR'
 quadrant1 = 'MVR'
@@ -44,7 +46,8 @@ def parallel_waves(n=muscle_row_count, #26 for our first test?
                    step=0, 
                    phi=math.pi,
                    amplitude=1,
-                   velocity=0.0001):
+				   #velocity=0.000008):
+                   velocity=0.00004):
     """
     Array of two travelling waves, second one starts
     half way through the array

@@ -185,9 +185,21 @@ void display(void)
 			glBegin(GL_POINTS);
 			if((int)p_cpp[i*4+3]==2)
 			{
-				glColor4f(   0,   0,   0,  1.0f);// color of elastic particles
+				//glColor4f(   0,   0,   0,  1.0f);// color of elastic particles
+				glColor4b(150/2, 125/2, 0, 100/2);
+				if(p_cpp[i*4+3]>2.15)	glColor4b( 50/2, 125/2, 0, 100/2); 
+				if(p_cpp[i*4+3]>2.25)	glColor4b( 70/2, 130/2, 155/2, 100/2); 
+				if((p_cpp[i*4+3]>2.31)
+				 &&(p_cpp[i*4+3]<2.33))	glColor4b( 180/2, 210/2, 255/2, 100/2); 
+
 				glPointSize(6.f);
 			}
+
+			if((int)p_cpp[i*4+3]==1)
+			{
+				if( ! ((p_cpp[i*4+3]>1.25) && (p_cpp[i*4+3]<1.35)) ) glColor4f(   1,   1,   1,  1.0f);// color of worm's inner liquid particles
+			}
+
 			glVertex3f( (p_cpp[i*4]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
 			glPointSize(3.f);
 			glEnd();
@@ -283,15 +295,23 @@ void display(void)
 				}
 				else
 				{//ordinary springs
-					glLineWidth((GLfloat)0.1);
+					/*glLineWidth((GLfloat)0.1);
 					glBegin(GL_LINES);
 											glColor4b(150/2, 125/2, 0, 100/2);
-					if(p_cpp[i*4+3]>2.15)	glColor4b( 50/2, 125/2, 0, 100/2);
+
+					if(p_cpp[i*4+3]>2.15)	glColor4b( 50/2, 125/2, 0, 100/2); 
+					if(p_cpp[i*4+3]>2.25)	glColor4b( 100/2, 120/2, 155/2, 100/2); 
+					if((p_cpp[i*4+3]>2.31)
+					 &&(p_cpp[i*4+3]<2.33))	glColor4b( 200/2, 200/2, 0/2, 100/2); 
 					glVertex3f( (p_cpp[i*4+0]-localConfig->xmax/2)*sc , (p_cpp[i*4+1]-localConfig->ymax/2)*sc, (p_cpp[i*4+2]-localConfig->zmax/2)*sc );
-											glColor4b(150/2, 125/2, 0, 100/2);
-					if(p_cpp[j*4+3]>2.15)	glColor4b( 50/2, 125/2, 0, 100/2);
-					glVertex3f( (p_cpp[j*4+0]-localConfig->xmax/2)*sc , (p_cpp[j*4+1]-localConfig->ymax/2)*sc, (p_cpp[j*4+2]-localConfig->zmax/2)*sc );
-					glEnd();
+
+					if(p_cpp[j*4+3]>2.15)	glColor4b( 50/2, 125/2, 0, 100/2); 
+					if(p_cpp[j*4+3]>2.25)	glColor4b( 100/2, 120/2, 155/2, 100/2); 
+					if((p_cpp[j*4+3]>2.31)
+					 &&(p_cpp[j*4+3]<2.33))	glColor4b( 200/2, 200/2, 0/2, 100/2); 
+					glVertex3f( (p_cpp[j*4+0]-localConfig->xmax/2)*sc , (p_cpp[j*4+1]-localConfig->ymax/2)*sc, (p_cpp[j*4+2]-localConfig->zmax/2)*sc ); 
+
+					glEnd();*/
 				}
 
 				ecc++;
@@ -307,6 +327,8 @@ void display(void)
 		i = md_cpp [i_m*3+0];
 		j = md_cpp [i_m*3+1];
 		k = md_cpp [i_m*3+2];
+
+		glLineWidth((GLfloat)1.0);
 
 		glBegin(GL_LINES);
 		glVertex3f( ((p_cpp[i*4]+p_cpp[j*4]+4*p_cpp[k*4])/6-localConfig->xmax/2)*sc , ((p_cpp[i*4+1]+p_cpp[j*4+1]+4*p_cpp[k*4+1])/6-localConfig->ymax/2)*sc, ((p_cpp[i*4+2]+p_cpp[j*4+2]+4*p_cpp[k*4+2])/6-localConfig->zmax/2)*sc );
@@ -483,7 +505,7 @@ void renderInfo(int x, int y)
 		glPrint( 0 , 2 , label, m_font);
 		glColor3f (1.0F, 1.0F, 1.0F);
 		if(load_from_file)
-			sprintf(label,"Selected device: %s FPS = %.2f, time step: %d (%f s)", localConfig->getDeviceName(), fps, iteration, iteration * localConfig->getTimeStep() * localConfig->getLogStep());
+			sprintf(label,"Selected device: %s FPS = %.2f, time step: %d (%f s)", localConfig->getDeviceName(), fps, iteration, iteration * localConfig->getTimeStep());
 		else
 			sprintf(label,"Selected device: %s FPS = %.2f, time step: %d (%f s)", localConfig->getDeviceName(), fps, fluid_simulation->getIteration(),((float)fluid_simulation->getIteration())*localConfig->getTimeStep());
 		glPrint( 0 , 17 , label, m_font);
@@ -776,19 +798,16 @@ void RespondKey(unsigned char key, int x, int y)
 	case 's':
 		fluid_simulation->makeSnapshot();
 		break;
-	case 'r': // reset simulation
-		helper->refreshTime();
-		fluid_simulation->reset();
-		break;
 	}
+
 	if(key == 'i')
 	{
 		showInfo = !showInfo;
 	}
-	/*if(key == 'r')
+	if(key == 'r')
 	{
 		showRuler = !showRuler;
-	}*/
+	}
 	glutPostRedisplay();
 }
 
@@ -915,7 +934,7 @@ void run(int argc, char** argv, const bool with_graphics)
 			fluid_simulation->simulationStep(load_to);
 			helper->refreshTime();
 			if(fluid_simulation->getIteration() == localConfig->getNumberOfIteration()){
-				std::cout << "Simulation has been reached time limit" << std::endl;
+				std::cout << "Simulation is reached time limit" << std::endl;
 				Cleanup();
 				return;
 			}

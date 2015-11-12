@@ -562,7 +562,12 @@ __kernel void pcisph_computeForcesAndInitPressure(
 	float rho_i,rho_j;
 	float4 accel_surfTensForce = (float4)( 0.0f, 0.0f, 0.0f, 0.0f );
 	float not_bp;
+
+	// viscosity		1e-06	5e-7	0.0 (decay coeff. = 1.4 instead of 1.2)
+	// velocity(dots)	6		6       15
 	int jd_source_particle;
+	//int cnt1=0,cnt2=0,cnt3=0,cnt4=0;
+
 	do{
 		if( (jd = NEIGHBOR_MAP_ID(neighborMap[ idx + nc])) != NO_PARTICLE_ID )
 		{
@@ -577,8 +582,81 @@ __kernel void pcisph_computeForcesAndInitPressure(
 				vj = sortedVelocity[jd];
     			jd_source_particle = PI_SERIAL_ID( particleIndex[jd] );
 				not_bp = (float)((int)(position[ jd_source_particle ].w) != BOUNDARY_PARTICLE);
-				accel_viscosityForce += (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/rho[jd];   // Caculating viscosity forces impact to acceleration
-																												 // formula 2.19 [1]
+
+				//elastic carpet
+				if( ( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.25f)) && 
+				    ( ( position[jd_source_particle].w > 2.25f)&&(position[jd_source_particle].w < 2.35f)) ) ||
+					( ((position[id_source_particle].w > 2.25f)&&(position[id_source_particle].w < 2.35f)) && 
+				    ( ( position[jd_source_particle].w > 2.05f)&&(position[jd_source_particle].w < 2.25f)) ) )
+				{
+					// viscosity between outer liquid and worm shell - very low
+					accel_viscosityForce += 0.0e-7;
+
+					if( ((position[id_source_particle].w > 2.25f)&&(position[id_source_particle].w < 2.35f)) )
+					{
+						position[id_source_particle].w = 2.32;
+					}
+				}
+				else
+				if( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.25f)) && 
+				    ((int)(position[jd_source_particle].w == BOUNDARY_PARTICLE)) )
+				{
+					// viscosity between floor and worm shell - very low
+					accel_viscosityForce += 0.0e-7;
+				}
+				else
+				{
+					accel_viscosityForce += 2.5e-4 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;
+					//cnt4++;
+				}
+
+				//end of elastic carpet
+
+				//=========================================
+
+				// viscous liquid
+/*
+				if( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) && 
+				    ((position[jd_source_particle].w > 1.25f)&&(position[jd_source_particle].w < 1.35f)) )
+				{
+					// viscosity between outer liquid (high) - trying to simulate agar 
+					accel_viscosityForce += 1.0e-3 * (sortedVelocity[jd]-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
+					//cnt1++;
+				}
+				else
+				if(	((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) && 
+				    ((int)position[jd_source_particle].w == BOUNDARY_PARTICLE) )
+				{
+					// viscosity between floor and worm shell - very low
+					accel_viscosityForce += 1.0e-3 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
+					//cnt2++;
+					//printf("%d",2);
+				}
+				else
+				if( ( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.35f)) && 
+				    ( ( position[jd_source_particle].w > 1.25f)&&(position[jd_source_particle].w < 1.35f)) ) ||
+					( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) && 
+				    ( ( position[jd_source_particle].w > 2.05f)&&(position[jd_source_particle].w < 2.35f)) ) )
+				{
+					// viscosity between outer liquid and worm shell - very low
+					accel_viscosityForce += 0;// * (sortedVelocity[jd]-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
+					//cnt3++;
+					//printf("%d",3);
+				}
+				else
+				if( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.35f)) && 
+				    ((int)(position[jd_source_particle].w == BOUNDARY_PARTICLE)) )
+				{
+					// viscosity between floor and worm shell - very low
+					accel_viscosityForce += 0;// * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
+					//cnt3++;
+				}
+				else
+				{
+					accel_viscosityForce += 1.0e-4 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
+					//cnt4++;
+				}
+*/																												 // formula 2.19 [1]
 				//29aug_A.Palyanov_start_block
 				// M.Beckner & M.Teschner / Weakly compressible SPH for free surface flows. 2007.
 				//normalVector += sortedPosition[id]-sortedPosition[jd];
@@ -594,9 +672,12 @@ __kernel void pcisph_computeForcesAndInitPressure(
 			}
 		}
 	}while(  ++nc < MAX_NEIGHBOR_COUNT );
+
+	//printf("\ncounters: %d  %d  %d  %d\n",cnt1,cnt2,cnt3,cnt4);
+
 	accel_surfTensForce.w = 0.f;
 	accel_surfTensForce /= mass;
-	accel_viscosityForce *= mu * mass_mult_divgradWviscosityCoefficient / rho[id];
+	accel_viscosityForce *= mass_mult_divgradWviscosityCoefficient / 1000;//rho[id];
 	// apply external forces
 	acceleration_i = accel_viscosityForce;
 	acceleration_i += (float4)( gravity_x, gravity_y, gravity_z, 0.0f );
@@ -619,7 +700,7 @@ __kernel void pcisph_computeElasticForces(
 								  __global float4 * sortedVelocity,
 								  __global float4 * acceleration,
 								  __global uint * particleIndexBack,
-								  __global float4 * velocity,
+								  __global uint2 * particleIndex,
 								  float h,
 								  float mass,
 								  float simulationScale,
@@ -633,6 +714,7 @@ __kernel void pcisph_computeElasticForces(
 								  )
 {
 	int index = get_global_id( 0 );//it is the index of the elastic particle among all elastic particles but this isn't real id of particle
+	//char c = '@';
 	if(index>=numOfElasticP) {
 		return;
 	}
@@ -642,17 +724,19 @@ __kernel void pcisph_computeElasticForces(
 	int idx = index * MAX_NEIGHBOR_COUNT;
 	float r_ij_equilibrium, r_ij, delta_r_ij, v_i_cm_length;
 	float4 vect_r_ij;
-	float4 centerOfMassVelocity;
-	float4 velocity_i_cm;
+	//float4 centerOfMassVelocity;
+	//float4 velocity_i_cm;
 	float check;
 	float4 proj_v_i_cm_on_r_ij;
-	int jd;
+	int jd, id_sp, jd_sp;//sp = source particle
 	int i;
+	id_sp = PI_SERIAL_ID( particleIndex[id] );
 	do
 	{
 		if( (jd = (int)elasticConnectionsData[ idx + nc ].x) != NO_PARTICLE_ID )
 		{
 			jd = particleIndexBack[jd];
+			jd_sp = PI_SERIAL_ID( particleIndex[jd] );
 			r_ij_equilibrium = elasticConnectionsData[ idx + nc ].y;//rij0
 			vect_r_ij = (sortedPosition[id] - sortedPosition[jd]) * simulationScale;//scale ok
 			vect_r_ij.w = 0.0f;
@@ -660,7 +744,23 @@ __kernel void pcisph_computeElasticForces(
 			delta_r_ij = r_ij - r_ij_equilibrium;//scale ok
 			if(r_ij!=0.f)
 			{
-				acceleration[ id ] += -(vect_r_ij/r_ij) * delta_r_ij * elasticityCoefficient;
+				/*if( ( (int)position[id_sp].w == BOUNDARY_PARTICLE ) ||
+					( (int)position[jd_sp].w == BOUNDARY_PARTICLE ) )
+				{
+
+	//id = particleIndexBack[id];//track selected particle (indices are not shuffled anymore)
+	//int id_source_particle = PI_SERIAL_ID( particleIndex[id] );
+	//if((int)(position[ id_source_particle ].w) == BOUNDARY_PARTICLE) {}
+
+					acceleration[ id ] += -(vect_r_ij/r_ij) * delta_r_ij * elasticityCoefficient*0.001;
+					//printf("%c",c);
+				}
+				else*/
+				{
+					acceleration[ id ] += -(vect_r_ij/r_ij) * delta_r_ij * elasticityCoefficient;
+					//printf("-%c-",c);
+				}
+				
 				for(i=0;i<MUSCLE_COUNT;i++)//check all muscles
 				{
 					if((int)(elasticConnectionsData[idx+nc].z)==(i+1))//contractible spring, = muscle
@@ -780,7 +880,7 @@ __kernel void pcisph_predictPositions(
 	}
 	//                     pressure force (dominant)            + all other forces
 	float4 acceleration_t    = acceleration[ PARTICLE_COUNT*2+id_source_particle ];    acceleration_t.w    = 0.f;
-	float4 acceleration_t_dt = acceleration[ id ] + acceleration[ PARTICLE_COUNT+id ]; acceleration_t_dt.w = 0.f;
+	float4 acceleration_t_dt = acceleration[ id ] /* 28.10.2015 + acceleration[ PARTICLE_COUNT+id ]*/; acceleration_t_dt.w = 0.f;
 	float4 velocity_t = sortedVelocity[ id ];
 	float4 acceleration_ = acceleration[ PARTICLE_COUNT+id ];		  // + acceleration[ id ];
 	// Semi-implicit Euler integration
