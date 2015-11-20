@@ -584,9 +584,10 @@ __kernel void pcisph_computeForcesAndInitPressure(
 				not_bp = (float)((int)(position[ jd_source_particle ].w) != BOUNDARY_PARTICLE);
 
 				//elastic carpet
-				if( ( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.25f)) && 
+				/*
+				if( ( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.25f)) &&
 				    ( ( position[jd_source_particle].w > 2.25f)&&(position[jd_source_particle].w < 2.35f)) ) ||
-					( ((position[id_source_particle].w > 2.25f)&&(position[id_source_particle].w < 2.35f)) && 
+					( ((position[id_source_particle].w > 2.25f)&&(position[id_source_particle].w < 2.35f)) &&
 				    ( ( position[jd_source_particle].w > 2.05f)&&(position[jd_source_particle].w < 2.25f)) ) )
 				{
 					// viscosity between outer liquid and worm shell - very low
@@ -598,7 +599,7 @@ __kernel void pcisph_computeForcesAndInitPressure(
 					}
 				}
 				else
-				if( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.25f)) && 
+				if( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.25f)) &&
 				    ((int)(position[jd_source_particle].w == BOUNDARY_PARTICLE)) )
 				{
 					// viscosity between floor and worm shell - very low
@@ -609,33 +610,33 @@ __kernel void pcisph_computeForcesAndInitPressure(
 					accel_viscosityForce += 2.5e-4 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;
 					//cnt4++;
 				}
-
+				*/
 				//end of elastic carpet
 
 				//=========================================
 
 				// viscous liquid
 /*
-				if( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) && 
+				if( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) &&
 				    ((position[jd_source_particle].w > 1.25f)&&(position[jd_source_particle].w < 1.35f)) )
 				{
-					// viscosity between outer liquid (high) - trying to simulate agar 
-					accel_viscosityForce += 1.0e-3 * (sortedVelocity[jd]-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
+					// viscosity between outer liquid (high) - trying to simulate agar
+					accel_viscosityForce += 1.0e-5 * (sortedVelocity[jd]-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
 					//cnt1++;
 				}
 				else
-				if(	((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) && 
+				if(	((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) &&
 				    ((int)position[jd_source_particle].w == BOUNDARY_PARTICLE) )
 				{
 					// viscosity between floor and worm shell - very low
-					accel_viscosityForce += 1.0e-3 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
+					accel_viscosityForce += 1.0e-5 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
 					//cnt2++;
 					//printf("%d",2);
 				}
 				else
-				if( ( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.35f)) && 
+				if( ( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.35f)) &&
 				    ( ( position[jd_source_particle].w > 1.25f)&&(position[jd_source_particle].w < 1.35f)) ) ||
-					( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) && 
+					( ((position[id_source_particle].w > 1.25f)&&(position[id_source_particle].w < 1.35f)) &&
 				    ( ( position[jd_source_particle].w > 2.05f)&&(position[jd_source_particle].w < 2.35f)) ) )
 				{
 					// viscosity between outer liquid and worm shell - very low
@@ -644,19 +645,19 @@ __kernel void pcisph_computeForcesAndInitPressure(
 					//printf("%d",3);
 				}
 				else
-				if( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.35f)) && 
+				if( ((position[id_source_particle].w > 2.05f)&&(position[id_source_particle].w < 2.35f)) &&
 				    ((int)(position[jd_source_particle].w == BOUNDARY_PARTICLE)) )
 				{
 					// viscosity between floor and worm shell - very low
 					accel_viscosityForce += 0;// * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
 					//cnt3++;
 				}
-				else
+				else*/
 				{
 					accel_viscosityForce += 1.0e-4 * (sortedVelocity[jd]*not_bp-sortedVelocity[id])*(hScaled-r_ij)/1000;//rho[jd];   // Caculating viscosity forces impact to acceleration
 					//cnt4++;
 				}
-*/																												 // formula 2.19 [1]
+/**/																												 // formula 2.19 [1]
 				//29aug_A.Palyanov_start_block
 				// M.Beckner & M.Teschner / Weakly compressible SPH for free surface flows. 2007.
 				//normalVector += sortedPosition[id]-sortedPosition[jd];
@@ -760,7 +761,7 @@ __kernel void pcisph_computeElasticForces(
 					acceleration[ id ] += -(vect_r_ij/r_ij) * delta_r_ij * elasticityCoefficient;
 					//printf("-%c-",c);
 				}
-				
+
 				for(i=0;i<MUSCLE_COUNT;i++)//check all muscles
 				{
 					if((int)(elasticConnectionsData[idx+nc].z)==(i+1))//contractible spring, = muscle
